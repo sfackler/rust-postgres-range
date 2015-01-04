@@ -158,7 +158,7 @@ mod test {
     use std::fmt;
 
     use postgres::{Connection, FromSql, ToSql, SslMode};
-    use time::{mod, Timespec};
+    use time::{self, Timespec};
 
     macro_rules! test_range {
         ($name:expr, $t:ty, $low:expr, $low_str:expr, $high:expr, $high_str:expr) => ({

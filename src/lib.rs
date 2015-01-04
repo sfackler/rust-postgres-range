@@ -5,6 +5,7 @@
 extern crate postgres;
 extern crate time;
 
+use std::cmp::Ordering;
 use std::fmt;
 use std::i32;
 use std::i64;
@@ -153,7 +154,7 @@ impl Normalizable for Timespec {
 }
 
 /// The possible sides of a bound
-#[deriving(PartialEq, Eq, Copy)]
+#[derive(PartialEq, Eq, Copy)]
 pub enum BoundSide {
     /// An upper bound
     Upper,
@@ -190,7 +191,7 @@ impl BoundSided for LowerBound {
 }
 
 /// The type of a range bound
-#[deriving(PartialEq, Eq, Clone, Copy)]
+#[derive(PartialEq, Eq, Clone, Copy)]
 pub enum BoundType {
     /// The bound includes its value
     Inclusive,
@@ -249,10 +250,10 @@ impl<S, T> PartialOrd for RangeBound<S, T> where S: BoundSided, T: PartialOrd {
     fn partial_cmp(&self, other: &RangeBound<S, T>) -> Option<Ordering> {
         match (BoundSided::side(None::<S>), self.type_, other.type_,
                 self.value.partial_cmp(&other.value)) {
-            (Upper, Exclusive, Inclusive, Some(Equal))
-            | (Lower, Inclusive, Exclusive, Some(Equal)) => Some(Less),
-            (Upper, Inclusive, Exclusive, Some(Equal))
-            | (Lower, Exclusive, Inclusive, Some(Equal)) => Some(Greater),
+            (Upper, Exclusive, Inclusive, Some(Ordering::Equal))
+            | (Lower, Inclusive, Exclusive, Some(Ordering::Equal)) => Some(Ordering::Less),
+            (Upper, Inclusive, Exclusive, Some(Ordering::Equal))
+            | (Lower, Exclusive, Inclusive, Some(Ordering::Equal)) => Some(Ordering::Greater),
             (_, _, _, cmp) => cmp,
         }
     }
@@ -262,10 +263,10 @@ impl<S, T> Ord for RangeBound<S, T> where S: BoundSided, T: Ord {
     fn cmp(&self, other: &RangeBound<S, T>) -> Ordering {
         match (BoundSided::side(None::<S>), self.type_, other.type_,
                 self.value.cmp(&other.value)) {
-            (Upper, Exclusive, Inclusive, Equal)
-            | (Lower, Inclusive, Exclusive, Equal) => Less,
-            (Upper, Inclusive, Exclusive, Equal)
-            | (Lower, Exclusive, Inclusive, Equal) => Greater,
+            (Upper, Exclusive, Inclusive, Ordering::Equal)
+            | (Lower, Inclusive, Exclusive, Ordering::Equal) => Ordering::Less,
+            (Upper, Inclusive, Exclusive, Ordering::Equal)
+            | (Lower, Exclusive, Inclusive, Ordering::Equal) => Ordering::Greater,
             (_, _, _, ord) => ord,
         }
     }
@@ -305,23 +306,23 @@ impl<'a, S, T> PartialEq for OptBound<'a, S, T> where S: BoundSided, T: PartialE
 impl<'a, S, T> PartialOrd for OptBound<'a, S, T> where S: BoundSided, T: PartialOrd {
     fn partial_cmp(&self, other: &OptBound<'a, S, T>) -> Option<Ordering> {
         match (self, other, BoundSided::side(None::<S>)) {
-            (&OptBound(None), &OptBound(None), _) => Some(Equal),
+            (&OptBound(None), &OptBound(None), _) => Some(Ordering::Equal),
             (&OptBound(None), _, Lower)
-            | (_, &OptBound(None), Upper) => Some(Less),
+            | (_, &OptBound(None), Upper) => Some(Ordering::Less),
             (&OptBound(None), _, Upper)
-            | (_, &OptBound(None), Lower) => Some(Greater),
+            | (_, &OptBound(None), Lower) => Some(Ordering::Greater),
             (&OptBound(Some(a)), &OptBound(Some(b)), _) => a.partial_cmp(b)
         }
     }
 }
 
 /// Represents a range of values.
-#[deriving(PartialEq, Eq, Clone, Copy)]
+#[derive(PartialEq, Eq, Clone, Copy)]
 pub struct Range<T> {
     inner: InnerRange<T>,
 }
 
-#[deriving(PartialEq, Eq, Clone, Copy)]
+#[derive(PartialEq, Eq, Clone, Copy)]
 enum InnerRange<T> {
     Empty,
     Normal(Option<RangeBound<LowerBound, T>>,
