@@ -8,7 +8,7 @@ use postgres::types::{RawFromSql, RawToSql};
 use {postgres, Range, RangeBound, BoundType, BoundSided, Normalizable};
 
 macro_rules! check_types {
-    ($($expected:pat)|+, $actual:ident) => (
+    ($actual:ident, $($expected:pat),+) => (
         match $actual {
             $(&$expected)|+ => {}
             actual => return Err(::postgres::Error::WrongType(actual.clone()))
@@ -17,10 +17,10 @@ macro_rules! check_types {
 }
 
 macro_rules! from_sql_impl {
-    ($($oid:pat)|+, $t:ty) => {
+    ($t:ty, $($oid:pat),+) => {
         impl ::postgres::FromSql for Option<::Range<$t>> {
             fn from_sql(ty: &::postgres::Type, raw: Option<&[u8]>) -> ::postgres::Result<Self> {
-                check_types!($($oid)|+, ty);
+                check_types!(ty, $($oid),+);
 
                 match raw {
                     Some(mut raw) => ::postgres::types::RawFromSql::raw_from_sql(&mut raw).map(Some),
@@ -43,10 +43,10 @@ macro_rules! from_sql_impl {
 }
 
 macro_rules! to_sql_impl {
-    ($($oid:pat)|+, $t:ty) => {
+    ($t:ty, $($oid:pat),+) => {
         impl ::postgres::ToSql for ::Range<$t> {
             fn to_sql(&self, ty: &::postgres::Type) -> ::postgres::Result<Option<Vec<u8>>> {
-                check_types!($($oid)|+, ty);
+                check_types!(ty, $($oid),+);
 
                 let mut writer = vec![];
                 try!(self.raw_to_sql(&mut writer));
@@ -56,7 +56,7 @@ macro_rules! to_sql_impl {
 
         impl ::postgres::ToSql for Option<::Range<$t>> {
             fn to_sql(&self, ty: &::postgres::Type) -> ::postgres::Result<Option<Vec<u8>>> {
-                check_types!($($oid)|+, ty);
+                check_types!(ty, $($oid),+);
                 match *self {
                     Some(ref arr) => arr.to_sql(ty),
                     None => Ok(None)
@@ -89,7 +89,7 @@ impl<T> RawFromSql for Range<T> where T: PartialOrd+Normalizable+RawFromSql {
                         0 => BoundType::Exclusive,
                         _ => BoundType::Inclusive,
                     };
-                    let len = try!(rdr.read_be_i32()) as uint;
+                    let len = try!(rdr.read_be_i32()) as usize;
                     let mut limit = LimitReader::new(rdr.by_ref(), len);
                     let bound = try!(RawFromSql::raw_from_sql(&mut limit));
                     if limit.limit() != 0 {
@@ -107,9 +107,9 @@ impl<T> RawFromSql for Range<T> where T: PartialOrd+Normalizable+RawFromSql {
     }
 }
 
-from_sql_impl!(Type::Int4Range, i32);
-from_sql_impl!(Type::Int8Range, i64);
-from_sql_impl!(Type::TsRange | Type::TstzRange, Timespec);
+from_sql_impl!(i32, Type::Int4Range);
+from_sql_impl!(i64, Type::Int8Range);
+from_sql_impl!(Timespec, Type::TsRange, Type::TstzRange);
 
 impl<T> RawToSql for Range<T> where T: PartialOrd+Normalizable+RawToSql {
     fn raw_to_sql<W: Writer>(&self, buf: &mut W) -> postgres::Result<()> {
@@ -149,9 +149,9 @@ impl<T> RawToSql for Range<T> where T: PartialOrd+Normalizable+RawToSql {
     }
 }
 
-to_sql_impl!(Type::Int4Range, i32);
-to_sql_impl!(Type::Int8Range, i64);
-to_sql_impl!(Type::TsRange | Type::TstzRange, Timespec);
+to_sql_impl!(i32, Type::Int4Range);
+to_sql_impl!(i64, Type::Int8Range);
+to_sql_impl!(Timespec, Type::TsRange, Type::TstzRange);
 
 #[cfg(test)]
 mod test {
@@ -162,18 +162,18 @@ mod test {
 
     macro_rules! test_range {
         ($name:expr, $t:ty, $low:expr, $low_str:expr, $high:expr, $high_str:expr) => ({
-            let tests = &[(Some(range!('(', ')')), "'(,)'".to_string()),
-                         (Some(range!('[' $low, ')')), format!("'[{},)'", $low_str)),
-                         (Some(range!('(' $low, ')')), format!("'({},)'", $low_str)),
-                         (Some(range!('(', $high ']')), format!("'(,{}]'", $high_str)),
-                         (Some(range!('(', $high ')')), format!("'(,{})'", $high_str)),
-                         (Some(range!('[' $low, $high ']')),
+            let tests = &[(Some(range!('(',; ')')), "'(,)'".to_string()),
+                         (Some(range!('[' $low,; ')')), format!("'[{},)'", $low_str)),
+                         (Some(range!('(' $low,; ')')), format!("'({},)'", $low_str)),
+                         (Some(range!('(', $high; ']')), format!("'(,{}]'", $high_str)),
+                         (Some(range!('(', $high; ')')), format!("'(,{})'", $high_str)),
+                         (Some(range!('[' $low, $high; ']')),
                           format!("'[{},{}]'", $low_str, $high_str)),
-                         (Some(range!('[' $low, $high ')')),
+                         (Some(range!('[' $low, $high; ')')),
                           format!("'[{},{})'", $low_str, $high_str)),
-                         (Some(range!('(' $low, $high ']')),
+                         (Some(range!('(' $low, $high; ']')),
                           format!("'({},{}]'", $low_str, $high_str)),
-                         (Some(range!('(' $low, $high ')')),
+                         (Some(range!('(' $low, $high; ')')),
                           format!("'({},{})'", $low_str, $high_str)),
                          (Some(range!(empty)), "'empty'".to_string()),
                          (None, "NULL".to_string())];
@@ -181,15 +181,15 @@ mod test {
         })
     }
 
-    fn test_type<T: PartialEq+FromSql+ToSql, S: fmt::Show>(sql_type: &str, checks: &[(T, S)]) {
+    fn test_type<T: PartialEq+FromSql+ToSql, S: fmt::String>(sql_type: &str, checks: &[(T, S)]) {
         let conn = Connection::connect("postgres://postgres@localhost", &SslMode::None).unwrap();
         for &(ref val, ref repr) in checks.iter() {
             let stmt = conn.prepare(&*format!("SELECT {}::{}", *repr, sql_type)).unwrap();
-            let result = stmt.query(&[]).unwrap().next().unwrap().get(0u);
+            let result = stmt.query(&[]).unwrap().next().unwrap().get(0);
             assert!(val == &result);
 
             let stmt = conn.prepare(&*format!("SELECT $1::{}", sql_type)).unwrap();
-            let result = stmt.query(&[val]).unwrap().next().unwrap().get(0u);
+            let result = stmt.query(&[val]).unwrap().next().unwrap().get(0);
             assert!(val == &result);
         }
     }

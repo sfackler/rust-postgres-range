@@ -1,6 +1,6 @@
 //! Types dealing with ranges of values
 #![doc(html_root_url="https://sfackler.github.io/doc")]
-#![feature(macro_rules)]
+#![allow(unstable)]
 
 extern crate postgres;
 extern crate time;
@@ -26,9 +26,8 @@ mod postgres_range {
 /// ## Example
 ///
 /// ```rust
-/// #[feature(phase)];
 ///
-/// #[phase(syntax, link)]
+/// #[macro_use]
 /// extern crate postgres_range;
 ///
 /// use postgres_range::Range;
@@ -36,71 +35,71 @@ mod postgres_range {
 /// fn main() {
 ///     let mut r: Range<i32>;
 ///     // a closed interval
-///     r = range!('[' 5i32, 10i32 ']');
+///     r = range!('[' 5i32, 10i32; ']');
 ///     // an open interval
-///     r = range!('(' 5i32, 10i32 ')');
+///     r = range!('(' 5i32, 10i32; ')');
 ///     // half-open intervals
-///     r = range!('(' 5i32, 10i32 ']');
-///     r = range!('[' 5i32, 10i32 ')');
+///     r = range!('(' 5i32, 10i32; ']');
+///     r = range!('[' 5i32, 10i32; ')');
 ///     // a closed lower-bounded interval
-///     r = range!('[' 5i32, ')');
+///     r = range!('[' 5i32,; ')');
 ///     // an open lower-bounded interval
-///     r = range!('(' 5i32, ')');
+///     r = range!('(' 5i32,; ')');
 ///     // a closed upper-bounded interval
-///     r = range!('(', 10i32 ']');
+///     r = range!('(', 10i32; ']');
 ///     // an open upper-bounded interval
-///     r = range!('(', 10i32 ')');
+///     r = range!('(', 10i32; ')');
 ///     // an unbounded interval
-///     r = range!('(', ')');
+///     r = range!('(',; ')');
 ///     // an empty interval
 ///     r = range!(empty);
 /// }
 #[macro_export]
 macro_rules! range {
     (empty) => (::postgres_range::Range::empty());
-    ('(', ')') => (::postgres_range::Range::new(None, None));
-    ('(', $h:expr ')') => (
+    ('(',; ')') => (::postgres_range::Range::new(None, None));
+    ('(', $h:expr; ')') => (
         ::postgres_range::Range::new(None,
             Some(::postgres_range::RangeBound::new($h,
                 ::postgres_range::BoundType::Exclusive)))
     );
-    ('(', $h:expr ']') => (
+    ('(', $h:expr; ']') => (
         ::postgres_range::Range::new(None,
             Some(::postgres_range::RangeBound::new($h,
                 ::postgres_range::BoundType::Inclusive)))
     );
-    ('(' $l:expr, ')') => (
+    ('(' $l:expr,; ')') => (
         ::postgres_range::Range::new(
             Some(::postgres_range::RangeBound::new($l,
                 ::postgres_range::BoundType::Exclusive)), None)
     );
-    ('[' $l:expr, ')') => (
+    ('[' $l:expr,; ')') => (
         ::postgres_range::Range::new(
             Some(::postgres_range::RangeBound::new($l,
                 ::postgres_range::BoundType::Inclusive)), None)
     );
-    ('(' $l:expr, $h:expr ')') => (
+    ('(' $l:expr, $h:expr; ')') => (
         ::postgres_range::Range::new(
             Some(::postgres_range::RangeBound::new($l,
                 ::postgres_range::BoundType::Exclusive)),
             Some(::postgres_range::RangeBound::new($h,
                 ::postgres_range::BoundType::Exclusive)))
     );
-    ('(' $l:expr, $h:expr ']') => (
+    ('(' $l:expr, $h:expr; ']') => (
         ::postgres_range::Range::new(
             Some(::postgres_range::RangeBound::new($l,
                 ::postgres_range::BoundType::Exclusive)),
             Some(::postgres_range::RangeBound::new($h,
                 ::postgres_range::BoundType::Inclusive)))
     );
-    ('[' $l:expr, $h:expr ')') => (
+    ('[' $l:expr, $h:expr; ')') => (
         ::postgres_range::Range::new(
             Some(::postgres_range::RangeBound::new($l,
                 ::postgres_range::BoundType::Inclusive)),
             Some(::postgres_range::RangeBound::new($h,
                 ::postgres_range::BoundType::Exclusive)))
     );
-    ('[' $l:expr, $h:expr ']') => (
+    ('[' $l:expr, $h:expr; ']') => (
         ::postgres_range::Range::new(
             Some(::postgres_range::RangeBound::new($l,
                 ::postgres_range::BoundType::Inclusive)),
@@ -228,8 +227,8 @@ impl<S, T> fmt::Show for RangeBound<S, T> where S: BoundSided, T: fmt::Show {
         };
 
         match BoundSided::side(None::<S>) {
-            Lower => write!(fmt, "{}{}", lower, self.value),
-            Upper => write!(fmt, "{}{}", self.value, upper),
+            Lower => write!(fmt, "{}{:?}", lower, self.value),
+            Upper => write!(fmt, "{:?}{}", self.value, upper),
         }
     }
 }
@@ -335,12 +334,12 @@ impl<T> fmt::Show for Range<T> where T: fmt::Show {
             Empty => write!(fmt, "empty"),
             Normal(ref lower, ref upper) => {
                 match *lower {
-                    Some(ref bound) => try!(write!(fmt, "{}", bound)),
+                    Some(ref bound) => try!(write!(fmt, "{:?}", bound)),
                     None => try!(write!(fmt, "(")),
                 }
                 try!(write!(fmt, ","));
                 match *upper {
-                    Some(ref bound) => write!(fmt, "{}", bound),
+                    Some(ref bound) => write!(fmt, "{:?}", bound),
                     None => write!(fmt, ")"),
                 }
             }
@@ -493,9 +492,9 @@ mod test {
 
     #[test]
     fn test_range_bound_lower_lt() {
-        fn check(val1: int, inc1: BoundType, val2: int, inc2: BoundType, expected: bool) {
-            let a: RangeBound<LowerBound, int> = RangeBound::new(val1, inc1);
-            let b: RangeBound<LowerBound, int> = RangeBound::new(val2, inc2);
+        fn check(val1: isize, inc1: BoundType, val2: isize, inc2: BoundType, expected: bool) {
+            let a: RangeBound<LowerBound, isize> = RangeBound::new(val1, inc1);
+            let b: RangeBound<LowerBound, isize> = RangeBound::new(val2, inc2);
             assert_eq!(expected, a < b);
         }
 
@@ -511,9 +510,9 @@ mod test {
 
     #[test]
     fn test_range_bound_upper_lt() {
-        fn check(val1: int, inc1: BoundType, val2: int, inc2: BoundType, expected: bool) {
-            let a: RangeBound<UpperBound, int> = RangeBound::new(val1, inc1);
-            let b: RangeBound<UpperBound, int> = RangeBound::new(val2, inc2);
+        fn check(val1: isize, inc1: BoundType, val2: isize, inc2: BoundType, expected: bool) {
+            let a: RangeBound<UpperBound, isize> = RangeBound::new(val1, inc1);
+            let b: RangeBound<UpperBound, isize> = RangeBound::new(val2, inc2);
             assert_eq!(expected, a < b);
         }
 
@@ -529,8 +528,8 @@ mod test {
 
     #[test]
     fn test_range_bound_lower_in_bounds() {
-        fn check(bound: int, inc: BoundType, val: int, expected: bool) {
-            let b: RangeBound<LowerBound, int> = RangeBound::new(bound, inc);
+        fn check(bound: isize, inc: BoundType, val: isize, expected: bool) {
+            let b: RangeBound<LowerBound, isize> = RangeBound::new(bound, inc);
             assert_eq!(expected, b.in_bounds(&val));
         }
 
@@ -542,8 +541,8 @@ mod test {
 
     #[test]
     fn test_range_bound_upper_in_bounds() {
-        fn check(bound: int, inc: BoundType, val: int, expected: bool) {
-            let b: RangeBound<UpperBound, int> = RangeBound::new(bound, inc);
+        fn check(bound: isize, inc: BoundType, val: isize, expected: bool) {
+            let b: RangeBound<UpperBound, isize> = RangeBound::new(bound, inc);
             assert_eq!(expected, b.in_bounds(&val));
         }
 
@@ -555,31 +554,31 @@ mod test {
 
     #[test]
     fn test_range_contains() {
-        let r = range!('[' 1i32, 3i32 ']');
+        let r = range!('[' 1i32, 3i32; ']');
         assert!(!r.contains(&4));
         assert!(r.contains(&3));
         assert!(r.contains(&2));
         assert!(r.contains(&1));
         assert!(!r.contains(&0));
 
-        let r = range!('(' 1i32, 3i32 ')');
+        let r = range!('(' 1i32, 3i32; ')');
         assert!(!r.contains(&4));
         assert!(!r.contains(&3));
         assert!(r.contains(&2));
         assert!(!r.contains(&1));
         assert!(!r.contains(&0));
 
-        let r = range!('(', 3i32 ']');
+        let r = range!('(', 3i32; ']');
         assert!(!r.contains(&4));
         assert!(r.contains(&2));
         assert!(r.contains(&i32::MIN));
 
-        let r = range!('[' 1i32, ')');
+        let r = range!('[' 1i32,; ')');
         assert!(r.contains(&i32::MAX));
         assert!(r.contains(&4));
         assert!(!r.contains(&0));
 
-        let r = range!('(', ')');
+        let r = range!('(',; ')');
         assert!(r.contains(&i32::MAX));
         assert!(r.contains(&0i32));
         assert!(r.contains(&i32::MIN));
@@ -605,91 +604,91 @@ mod test {
 
     #[test]
     fn test_range_normalizes() {
-        let r1 = range!('(' 10i32, 15i32 ']');
-        let r2 = range!('[' 11i32, 16i32 ')');
+        let r1 = range!('(' 10i32, 15i32; ']');
+        let r2 = range!('[' 11i32, 16i32; ')');
         assert_eq!(r1, r2);
     }
 
     #[test]
     fn test_range_empty() {
-        assert!((range!('(' 9i32, 10i32 ')')).is_empty());
-        assert!((range!('[' 10i32, 10i32 ')')).is_empty());
-        assert!((range!('(' 10i32, 10i32 ']')).is_empty());
-        assert!((range!('[' 10i32, 9i32 ']')).is_empty());
+        assert!((range!('(' 9i32, 10i32; ')')).is_empty());
+        assert!((range!('[' 10i32, 10i32; ')')).is_empty());
+        assert!((range!('(' 10i32, 10i32; ']')).is_empty());
+        assert!((range!('[' 10i32, 9i32; ']')).is_empty());
     }
 
     #[test]
     fn test_intersection() {
-        let r1 = range!('[' 10i32, 15i32 ')');
-        let r2 = range!('(' 20i32, 25i32 ']');
+        let r1 = range!('[' 10i32, 15i32; ')');
+        let r2 = range!('(' 20i32, 25i32; ']');
         assert!(r1.intersect(&r2).is_empty());
         assert!(r2.intersect(&r1).is_empty());
-        assert_eq!(r1, r1.intersect(&range!('(', ')')));
-        assert_eq!(r1, (range!('(', ')')).intersect(&r1));
+        assert_eq!(r1, r1.intersect(&range!('(',; ')')));
+        assert_eq!(r1, (range!('(',; ')')).intersect(&r1));
 
-        let r2 = range!('(' 10i32, ')');
+        let r2 = range!('(' 10i32,; ')');
         let exp = Range::new(r2.lower().map(|v| v.clone()),
                              r1.upper().map(|v| v.clone()));
         assert_eq!(exp, r1.intersect(&r2));
         assert_eq!(exp, r2.intersect(&r1));
 
-        let r2 = range!('(', 15i32 ']');
+        let r2 = range!('(', 15i32; ']');
         assert_eq!(r1, r1.intersect(&r2));
         assert_eq!(r1, r2.intersect(&r1));
 
-        let r2 = range!('[' 11i32, 14i32 ')');
+        let r2 = range!('[' 11i32, 14i32; ')');
         assert_eq!(r2, r1.intersect(&r2));
         assert_eq!(r2, r2.intersect(&r1));
     }
 
     #[test]
     fn test_union() {
-        let r1 = range!('[' 10i32, 15i32 ')');
-        let r2 = range!('(' 20i32, 25i32 ']');
+        let r1 = range!('[' 10i32, 15i32; ')');
+        let r2 = range!('(' 20i32, 25i32; ']');
         assert_eq!(None, r1.union(&r2));
         assert_eq!(None, r2.union(&r1));
 
-        let r2 = range!('(', ')');
+        let r2 = range!('(',; ')');
         assert_eq!(Some(r2), r1.union(&r2));
         assert_eq!(Some(r2), r2.union(&r1));
 
-        let r2 = range!('[' 13i32, 50i32 ')');
-        assert_eq!(Some(range!('[' 10i32, 50i32 ')')), r1.union(&r2));
-        assert_eq!(Some(range!('[' 10i32, 50i32 ')')), r2.union(&r1));
+        let r2 = range!('[' 13i32, 50i32; ')');
+        assert_eq!(Some(range!('[' 10i32, 50i32; ')')), r1.union(&r2));
+        assert_eq!(Some(range!('[' 10i32, 50i32; ')')), r2.union(&r1));
 
-        let r2 = range!('[' 3i32, 50i32 ')');
-        assert_eq!(Some(range!('[' 3i32, 50i32 ')')), r1.union(&r2));
-        assert_eq!(Some(range!('[' 3i32, 50i32 ')')), r2.union(&r1));
+        let r2 = range!('[' 3i32, 50i32; ')');
+        assert_eq!(Some(range!('[' 3i32, 50i32; ')')), r1.union(&r2));
+        assert_eq!(Some(range!('[' 3i32, 50i32; ')')), r2.union(&r1));
 
-        let r2 = range!('(', 11i32 ')');
-        assert_eq!(Some(range!('(', 15i32 ')')), r1.union(&r2));
-        assert_eq!(Some(range!('(', 15i32 ')')), r2.union(&r1));
+        let r2 = range!('(', 11i32; ')');
+        assert_eq!(Some(range!('(', 15i32; ')')), r1.union(&r2));
+        assert_eq!(Some(range!('(', 15i32; ')')), r2.union(&r1));
 
-        let r2 = range!('(' 11i32, ')');
-        assert_eq!(Some(range!('[' 10i32, ')')), r1.union(&r2));
-        assert_eq!(Some(range!('[' 10i32, ')')), r2.union(&r1));
+        let r2 = range!('(' 11i32,; ')');
+        assert_eq!(Some(range!('[' 10i32,; ')')), r1.union(&r2));
+        assert_eq!(Some(range!('[' 10i32,; ')')), r2.union(&r1));
 
-        let r2 = range!('(' 15i32, 20i32 ')');
+        let r2 = range!('(' 15i32, 20i32; ')');
         assert_eq!(None, r1.union(&r2));
         assert_eq!(None, r2.union(&r1));
 
-        let r2 = range!('[' 15i32, 20i32 ']');
-        assert_eq!(Some(range!('[' 10i32, 20i32 ']')), r1.union(&r2));
-        assert_eq!(Some(range!('[' 10i32, 20i32 ']')), r2.union(&r1));
+        let r2 = range!('[' 15i32, 20i32; ']');
+        assert_eq!(Some(range!('[' 10i32, 20i32; ']')), r1.union(&r2));
+        assert_eq!(Some(range!('[' 10i32, 20i32; ']')), r2.union(&r1));
     }
 
     #[test]
     fn test_contains_range() {
         assert!(Range::<i32>::empty().contains_range(&Range::empty()));
 
-        let r1 = range!('[' 10i32, 15i32 ')');
+        let r1 = range!('[' 10i32, 15i32; ')');
         assert!(r1.contains_range(&r1));
 
-        let r2 = range!('(' 10i32, ')');
+        let r2 = range!('(' 10i32,; ')');
         assert!(!r1.contains_range(&r2));
         assert!(!r2.contains_range(&r1));
 
-        let r2 = range!('(', 15i32 ']');
+        let r2 = range!('(', 15i32; ']');
         assert!(!r1.contains_range(&r2));
         assert!(r2.contains_range(&r1));
     }
