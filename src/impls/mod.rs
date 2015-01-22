@@ -23,7 +23,7 @@ macro_rules! from_sql_impl {
                 check_types!(ty, $($oid),+);
 
                 match raw {
-                    Some(mut raw) => ::postgres::types::RawFromSql::raw_from_sql(&mut raw).map(Some),
+                    Some(mut raw) => ::postgres::types::RawFromSql::raw_from_sql(ty, &mut raw).map(Some),
                     None => Ok(None),
                 }
             }
@@ -49,7 +49,7 @@ macro_rules! to_sql_impl {
                 check_types!(ty, $($oid),+);
 
                 let mut writer = vec![];
-                try!(self.raw_to_sql(&mut writer));
+                try!(self.raw_to_sql(ty, &mut writer));
                 Ok(Some(writer))
             }
         }
@@ -73,14 +73,14 @@ const RANGE_LOWER_INCLUSIVE: i8 = 0b0000_0010;
 const RANGE_EMPTY: i8           = 0b0000_0001;
 
 impl<T> RawFromSql for Range<T> where T: PartialOrd+Normalizable+RawFromSql {
-    fn raw_from_sql<R: Reader>(rdr: &mut R) -> postgres::Result<Range<T>> {
+    fn raw_from_sql<R: Reader>(ty: &Type, rdr: &mut R) -> postgres::Result<Range<T>> {
         let t = try!(rdr.read_i8());
 
         if t & RANGE_EMPTY != 0 {
             return Ok(Range::empty());
         }
 
-        fn make_bound<S, T, R>(rdr: &mut R, tag: i8, bound_flag: i8, inclusive_flag: i8)
+        fn make_bound<S, T, R>(ty: &Type, rdr: &mut R, tag: i8, bound_flag: i8, inclusive_flag: i8)
                                -> postgres::Result<Option<RangeBound<S, T>>>
                 where S: BoundSided, T: PartialOrd+Normalizable+RawFromSql, R: Reader {
             match tag & bound_flag {
@@ -91,7 +91,7 @@ impl<T> RawFromSql for Range<T> where T: PartialOrd+Normalizable+RawFromSql {
                     };
                     let len = try!(rdr.read_be_i32()) as usize;
                     let mut limit = LimitReader::new(rdr.by_ref(), len);
-                    let bound = try!(RawFromSql::raw_from_sql(&mut limit));
+                    let bound = try!(RawFromSql::raw_from_sql(ty, &mut limit));
                     if limit.limit() != 0 {
                         return Err(postgres::Error::BadData);
                     }
@@ -101,8 +101,9 @@ impl<T> RawFromSql for Range<T> where T: PartialOrd+Normalizable+RawFromSql {
             }
         }
 
-        let lower = try!(make_bound(rdr, t, RANGE_LOWER_UNBOUNDED, RANGE_LOWER_INCLUSIVE));
-        let upper = try!(make_bound(rdr, t, RANGE_UPPER_UNBOUNDED, RANGE_UPPER_INCLUSIVE));
+        let element_type = ty.element_type().unwrap();
+        let lower = try!(make_bound(&element_type, rdr, t, RANGE_LOWER_UNBOUNDED, RANGE_LOWER_INCLUSIVE));
+        let upper = try!(make_bound(&element_type, rdr, t, RANGE_UPPER_UNBOUNDED, RANGE_UPPER_INCLUSIVE));
         Ok(Range::new(lower, upper))
     }
 }
@@ -112,7 +113,7 @@ from_sql_impl!(i64, Type::Int8Range);
 from_sql_impl!(Timespec, Type::TsRange, Type::TstzRange);
 
 impl<T> RawToSql for Range<T> where T: PartialOrd+Normalizable+RawToSql {
-    fn raw_to_sql<W: Writer>(&self, buf: &mut W) -> postgres::Result<()> {
+    fn raw_to_sql<W: Writer>(&self, ty: &Type, buf: &mut W) -> postgres::Result<()> {
         let mut tag = 0;
         if self.is_empty() {
             tag |= RANGE_EMPTY;
@@ -131,19 +132,20 @@ impl<T> RawToSql for Range<T> where T: PartialOrd+Normalizable+RawToSql {
 
         try!(buf.write_i8(tag));
 
-        fn write_value<S, T, W>(buf: &mut W, v: Option<&RangeBound<S, T>>) -> postgres::Result<()>
+        fn write_value<S, T, W>(ty: &Type, buf: &mut W, v: Option<&RangeBound<S, T>>) -> postgres::Result<()>
                 where S: BoundSided, T: RawToSql, W: Writer {
             if let Some(bound) = v {
                 let mut inner_buf = vec![];
-                try!(bound.value.raw_to_sql(&mut inner_buf));
+                try!(bound.value.raw_to_sql(ty, &mut inner_buf));
                 try!(buf.write_be_u32(inner_buf.len() as u32));
                 try!(buf.write(&*inner_buf));
             }
             Ok(())
         }
 
-        try!(write_value(buf, self.lower()));
-        try!(write_value(buf, self.upper()));
+        let element_type = ty.element_type().unwrap();
+        try!(write_value(&element_type, buf, self.lower()));
+        try!(write_value(&element_type, buf, self.upper()));
 
         Ok(())
     }
