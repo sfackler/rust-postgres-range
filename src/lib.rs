@@ -219,7 +219,7 @@ impl<S, T> Clone for RangeBound<S, T> where S: BoundSided, T: Clone {
     }
 }
 
-impl<S, T> fmt::Show for RangeBound<S, T> where S: BoundSided, T: fmt::Show {
+impl<S, T> fmt::Debug for RangeBound<S, T> where S: BoundSided, T: fmt::Debug {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         let (lower, upper) = match self.type_ {
             Inclusive => ('[', ']'),
@@ -328,7 +328,7 @@ enum InnerRange<T> {
            Option<RangeBound<UpperBound, T>>)
 }
 
-impl<T> fmt::Show for Range<T> where T: fmt::Show {
+impl<T> fmt::Debug for Range<T> where T: fmt::Debug {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         match self.inner {
             Empty => write!(fmt, "empty"),
