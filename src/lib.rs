@@ -1,6 +1,6 @@
 //! Types dealing with ranges of values
 #![doc(html_root_url="https://sfackler.github.io/doc")]
-#![allow(unstable)]
+#![feature(io, core)]
 
 extern crate postgres;
 extern crate time;

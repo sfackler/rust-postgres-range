@@ -1,5 +1,5 @@
-use std::io::ByRefReader;
-use std::io::util::LimitReader;
+use std::old_io::ByRefReader;
+use std::old_io::util::LimitReader;
 
 use time::Timespec;
 use postgres::Type;
@@ -138,7 +138,7 @@ impl<T> RawToSql for Range<T> where T: PartialOrd+Normalizable+RawToSql {
                 let mut inner_buf = vec![];
                 try!(bound.value.raw_to_sql(ty, &mut inner_buf));
                 try!(buf.write_be_u32(inner_buf.len() as u32));
-                try!(buf.write(&*inner_buf));
+                try!(buf.write_all(&*inner_buf));
             }
             Ok(())
         }
@@ -183,7 +183,7 @@ mod test {
         })
     }
 
-    fn test_type<T: PartialEq+FromSql+ToSql, S: fmt::String>(sql_type: &str, checks: &[(T, S)]) {
+    fn test_type<T: PartialEq+FromSql+ToSql, S: fmt::Display>(sql_type: &str, checks: &[(T, S)]) {
         let conn = Connection::connect("postgres://postgres@localhost", &SslMode::None).unwrap();
         for &(ref val, ref repr) in checks.iter() {
             let stmt = conn.prepare(&*format!("SELECT {}::{}", *repr, sql_type)).unwrap();
