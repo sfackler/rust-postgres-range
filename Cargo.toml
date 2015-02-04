@@ -1,6 +1,6 @@
 [package]
 name = "postgres_range"
-version = "0.3.1"
+version = "0.4.0"
 authors = ["Steven Fackler <sfackler@gmail.com>"]
 license = "MIT"
 description = "Range support for rust-postgres"
