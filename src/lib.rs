@@ -1,6 +1,7 @@
 //! Types dealing with ranges of values
 #![doc(html_root_url="https://sfackler.github.io/doc")]
-#![feature(io, core)]
+#![cfg_attr(test, feature(core))]
+#![feature(io)]
 
 extern crate postgres;
 extern crate time;
@@ -127,7 +128,7 @@ macro_rules! bounded_normalizable {
     ($t:ident) => (
         impl Normalizable for $t {
             fn normalize<S>(bound: RangeBound<S, $t>) -> RangeBound<S, $t> where S: BoundSided {
-                match (BoundSided::side(None::<S>), bound.type_) {
+                match (<S as BoundSided>::side(), bound.type_) {
                     (Upper, Inclusive) => {
                         assert!(bound.value != $t::MAX);
                         RangeBound::new(bound.value + 1, Exclusive)
@@ -166,7 +167,7 @@ pub enum BoundSide {
 pub trait BoundSided {
     /// Returns the bound side this type corresponds to
     // param is a hack to get around lack of hints for self type
-    fn side(_: Option<Self>) -> BoundSide;
+    fn side() -> BoundSide;
 }
 
 /// A tag type representing an upper bound
@@ -178,13 +179,13 @@ pub enum UpperBound {}
 pub enum LowerBound {}
 
 impl BoundSided for UpperBound {
-    fn side(_: Option<UpperBound>) -> BoundSide {
+    fn side() -> BoundSide {
         Upper
     }
 }
 
 impl BoundSided for LowerBound {
-    fn side(_: Option<LowerBound>) -> BoundSide {
+    fn side() -> BoundSide {
         Lower
     }
 }
@@ -226,7 +227,7 @@ impl<S, T> fmt::Debug for RangeBound<S, T> where S: BoundSided, T: fmt::Debug {
             Exclusive => ('(', ')'),
         };
 
-        match BoundSided::side(None::<S>) {
+        match <S as BoundSided>::side() {
             Lower => write!(fmt, "{}{:?}", lower, self.value),
             Upper => write!(fmt, "{:?}{}", self.value, upper),
         }
@@ -247,7 +248,7 @@ impl<S, T> Eq for RangeBound<S, T> where S: BoundSided, T: Eq {}
 
 impl<S, T> PartialOrd for RangeBound<S, T> where S: BoundSided, T: PartialOrd {
     fn partial_cmp(&self, other: &RangeBound<S, T>) -> Option<Ordering> {
-        match (BoundSided::side(None::<S>), self.type_, other.type_,
+        match (<S as BoundSided>::side(), self.type_, other.type_,
                 self.value.partial_cmp(&other.value)) {
             (Upper, Exclusive, Inclusive, Some(Ordering::Equal))
             | (Lower, Inclusive, Exclusive, Some(Ordering::Equal)) => Some(Ordering::Less),
@@ -260,7 +261,7 @@ impl<S, T> PartialOrd for RangeBound<S, T> where S: BoundSided, T: PartialOrd {
 
 impl<S, T> Ord for RangeBound<S, T> where S: BoundSided, T: Ord {
     fn cmp(&self, other: &RangeBound<S, T>) -> Ordering {
-        match (BoundSided::side(None::<S>), self.type_, other.type_,
+        match (<S as BoundSided>::side(), self.type_, other.type_,
                 self.value.cmp(&other.value)) {
             (Upper, Exclusive, Inclusive, Ordering::Equal)
             | (Lower, Inclusive, Exclusive, Ordering::Equal) => Ordering::Less,
@@ -279,7 +280,7 @@ impl<S, T> RangeBound<S, T> where S: BoundSided, T: PartialOrd {
 
     /// Determines if a value lies within the range specified by this bound.
     pub fn in_bounds(&self, value: &T) -> bool {
-        match (self.type_, BoundSided::side(None::<S>)) {
+        match (self.type_, <S as BoundSided>::side()) {
             (Inclusive, Upper) => value <= &self.value,
             (Exclusive, Upper) => value < &self.value,
             (Inclusive, Lower) => value >= &self.value,
@@ -304,7 +305,7 @@ impl<'a, S, T> PartialEq for OptBound<'a, S, T> where S: BoundSided, T: PartialE
 
 impl<'a, S, T> PartialOrd for OptBound<'a, S, T> where S: BoundSided, T: PartialOrd {
     fn partial_cmp(&self, other: &OptBound<'a, S, T>) -> Option<Ordering> {
-        match (self, other, BoundSided::side(None::<S>)) {
+        match (self, other, <S as BoundSided>::side()) {
             (&OptBound(None), &OptBound(None), _) => Some(Ordering::Equal),
             (&OptBound(None), _, Lower)
             | (_, &OptBound(None), Upper) => Some(Ordering::Less),

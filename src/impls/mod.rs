@@ -185,7 +185,7 @@ mod test {
 
     fn test_type<T: PartialEq+FromSql+ToSql, S: fmt::Display>(sql_type: &str, checks: &[(T, S)]) {
         let conn = Connection::connect("postgres://postgres@localhost", &SslMode::None).unwrap();
-        for &(ref val, ref repr) in checks.iter() {
+        for &(ref val, ref repr) in checks {
             let stmt = conn.prepare(&*format!("SELECT {}::{}", *repr, sql_type)).unwrap();
             let result = stmt.query(&[]).unwrap().next().unwrap().get(0);
             assert!(val == &result);
