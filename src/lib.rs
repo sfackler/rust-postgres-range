@@ -166,7 +166,6 @@ pub enum BoundSide {
 #[doc(hidden)]
 pub trait BoundSided {
     /// Returns the bound side this type corresponds to
-    // param is a hack to get around lack of hints for self type
     fn side() -> BoundSide;
 }
 
