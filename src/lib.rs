@@ -1,5 +1,5 @@
 //! Types dealing with ranges of values
-#![doc(html_root_url="https://sfackler.github.io/doc")]
+#![doc(html_root_url="https://sfackler.github.io/rust-postgres-range/doc")]
 #![cfg_attr(test, feature(core))]
 #![feature(io)]
 
