@@ -1,4 +1,6 @@
 language: rust
+addons:
+  postgresql: 9.4
 script:
 - cargo test
 - cargo doc --no-deps
