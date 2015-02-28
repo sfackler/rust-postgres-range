@@ -1,10 +1,11 @@
 //! Types dealing with ranges of values
 #![doc(html_root_url="https://sfackler.github.io/rust-postgres-range/doc")]
-#![cfg_attr(test, feature(core))]
-#![feature(io)]
+#![feature(io, core)]
 
+#[macro_use(to_sql_checked)]
 extern crate postgres;
 extern crate time;
+extern crate byteorder;
 
 use std::cmp::Ordering;
 use std::fmt;
@@ -18,10 +19,6 @@ use time::Timespec;
 use BoundSide::{Lower, Upper};
 use BoundType::{Inclusive, Exclusive};
 use InnerRange::{Empty, Normal};
-
-mod postgres_range {
-    pub use super::{RangeBound, Range, BoundType};
-}
 
 /// The `range!` macro can make it easier to create ranges. It roughly mirrors
 /// traditional mathematic range syntax.
@@ -59,55 +56,55 @@ mod postgres_range {
 /// }
 #[macro_export]
 macro_rules! range {
-    (empty) => (::postgres_range::Range::empty());
-    ('(',; ')') => (::postgres_range::Range::new(None, None));
+    (empty) => ($crate::Range::empty());
+    ('(',; ')') => ($crate::Range::new(None, None));
     ('(', $h:expr; ')') => (
-        ::postgres_range::Range::new(None,
-            Some(::postgres_range::RangeBound::new($h,
-                ::postgres_range::BoundType::Exclusive)))
+        $crate::Range::new(None,
+            Some($crate::RangeBound::new($h,
+                $crate::BoundType::Exclusive)))
     );
     ('(', $h:expr; ']') => (
-        ::postgres_range::Range::new(None,
-            Some(::postgres_range::RangeBound::new($h,
-                ::postgres_range::BoundType::Inclusive)))
+        $crate::Range::new(None,
+            Some($crate::RangeBound::new($h,
+                $crate::BoundType::Inclusive)))
     );
     ('(' $l:expr,; ')') => (
-        ::postgres_range::Range::new(
-            Some(::postgres_range::RangeBound::new($l,
-                ::postgres_range::BoundType::Exclusive)), None)
+        $crate::Range::new(
+            Some($crate::RangeBound::new($l,
+                $crate::BoundType::Exclusive)), None)
     );
     ('[' $l:expr,; ')') => (
-        ::postgres_range::Range::new(
-            Some(::postgres_range::RangeBound::new($l,
-                ::postgres_range::BoundType::Inclusive)), None)
+        $crate::Range::new(
+            Some($crate::RangeBound::new($l,
+                $crate::BoundType::Inclusive)), None)
     );
     ('(' $l:expr, $h:expr; ')') => (
-        ::postgres_range::Range::new(
-            Some(::postgres_range::RangeBound::new($l,
-                ::postgres_range::BoundType::Exclusive)),
-            Some(::postgres_range::RangeBound::new($h,
-                ::postgres_range::BoundType::Exclusive)))
+        $crate::Range::new(
+            Some($crate::RangeBound::new($l,
+                $crate::BoundType::Exclusive)),
+            Some($crate::RangeBound::new($h,
+                $crate::BoundType::Exclusive)))
     );
     ('(' $l:expr, $h:expr; ']') => (
-        ::postgres_range::Range::new(
-            Some(::postgres_range::RangeBound::new($l,
-                ::postgres_range::BoundType::Exclusive)),
-            Some(::postgres_range::RangeBound::new($h,
-                ::postgres_range::BoundType::Inclusive)))
+        $crate::Range::new(
+            Some($crate::RangeBound::new($l,
+                $crate::BoundType::Exclusive)),
+            Some($crate::RangeBound::new($h,
+                $crate::BoundType::Inclusive)))
     );
     ('[' $l:expr, $h:expr; ')') => (
-        ::postgres_range::Range::new(
-            Some(::postgres_range::RangeBound::new($l,
-                ::postgres_range::BoundType::Inclusive)),
-            Some(::postgres_range::RangeBound::new($h,
-                ::postgres_range::BoundType::Exclusive)))
+        $crate::Range::new(
+            Some($crate::RangeBound::new($l,
+                $crate::BoundType::Inclusive)),
+            Some($crate::RangeBound::new($h,
+                $crate::BoundType::Exclusive)))
     );
     ('[' $l:expr, $h:expr; ']') => (
-        ::postgres_range::Range::new(
-            Some(::postgres_range::RangeBound::new($l,
-                ::postgres_range::BoundType::Inclusive)),
-            Some(::postgres_range::RangeBound::new($h,
-                ::postgres_range::BoundType::Inclusive)))
+        $crate::Range::new(
+            Some($crate::RangeBound::new($l,
+                $crate::BoundType::Inclusive)),
+            Some($crate::RangeBound::new($h,
+                $crate::BoundType::Inclusive)))
     )
 }
 

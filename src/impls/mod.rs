@@ -1,70 +1,9 @@
-use std::old_io::ByRefReader;
-use std::old_io::util::LimitReader;
+use std::io::prelude::*;
+use postgres::{self, Type, Kind, ToSql, FromSql};
+use postgres::types::IsNull;
+use byteorder::{ReadBytesExt, WriteBytesExt, BigEndian};
 
-use time::Timespec;
-use postgres::Type;
-use postgres::types::{RawFromSql, RawToSql};
-
-use {postgres, Range, RangeBound, BoundType, BoundSided, Normalizable};
-
-macro_rules! check_types {
-    ($actual:ident, $($expected:pat),+) => (
-        match $actual {
-            $(&$expected)|+ => {}
-            actual => return Err(::postgres::Error::WrongType(actual.clone()))
-        }
-    )
-}
-
-macro_rules! from_sql_impl {
-    ($t:ty, $($oid:pat),+) => {
-        impl ::postgres::FromSql for Option<::Range<$t>> {
-            fn from_sql(ty: &::postgres::Type, raw: Option<&[u8]>) -> ::postgres::Result<Self> {
-                check_types!(ty, $($oid),+);
-
-                match raw {
-                    Some(mut raw) => ::postgres::types::RawFromSql::raw_from_sql(ty, &mut raw).map(Some),
-                    None => Ok(None),
-                }
-            }
-        }
-
-        impl ::postgres::FromSql for ::Range<$t> {
-            fn from_sql(ty: &::postgres::Type, raw: Option<&[u8]>) -> ::postgres::Result<Self> {
-                let v: ::postgres::Result<Option<Self>> = ::postgres::FromSql::from_sql(ty, raw);
-                match v {
-                    Ok(None) => Err(::postgres::Error::WasNull),
-                    Ok(Some(v)) => Ok(v),
-                    Err(err) => Err(err),
-                }
-            }
-        }
-    }
-}
-
-macro_rules! to_sql_impl {
-    ($t:ty, $($oid:pat),+) => {
-        impl ::postgres::ToSql for ::Range<$t> {
-            fn to_sql(&self, ty: &::postgres::Type) -> ::postgres::Result<Option<Vec<u8>>> {
-                check_types!(ty, $($oid),+);
-
-                let mut writer = vec![];
-                try!(self.raw_to_sql(ty, &mut writer));
-                Ok(Some(writer))
-            }
-        }
-
-        impl ::postgres::ToSql for Option<::Range<$t>> {
-            fn to_sql(&self, ty: &::postgres::Type) -> ::postgres::Result<Option<Vec<u8>>> {
-                check_types!(ty, $($oid),+);
-                match *self {
-                    Some(ref arr) => arr.to_sql(ty),
-                    None => Ok(None)
-                }
-            }
-        }
-    }
-}
+use {Range, RangeBound, BoundType, BoundSided, Normalizable};
 
 const RANGE_UPPER_UNBOUNDED: i8 = 0b0001_0000;
 const RANGE_LOWER_UNBOUNDED: i8 = 0b0000_1000;
@@ -72,8 +11,13 @@ const RANGE_UPPER_INCLUSIVE: i8 = 0b0000_0100;
 const RANGE_LOWER_INCLUSIVE: i8 = 0b0000_0010;
 const RANGE_EMPTY: i8           = 0b0000_0001;
 
-impl<T> RawFromSql for Range<T> where T: PartialOrd+Normalizable+RawFromSql {
-    fn raw_from_sql<R: Reader>(ty: &Type, rdr: &mut R) -> postgres::Result<Range<T>> {
+impl<T> FromSql for Range<T> where T: PartialOrd+Normalizable+FromSql {
+    fn from_sql<R: Read>(ty: &Type, rdr: &mut R) -> postgres::Result<Range<T>> {
+        let element_type = match ty.kind() {
+            &Kind::Range(ref ty) => ty,
+            _ => panic!("unexpected type {:?}", ty)
+        };
+
         let t = try!(rdr.read_i8());
 
         if t & RANGE_EMPTY != 0 {
@@ -82,18 +26,18 @@ impl<T> RawFromSql for Range<T> where T: PartialOrd+Normalizable+RawFromSql {
 
         fn make_bound<S, T, R>(ty: &Type, rdr: &mut R, tag: i8, bound_flag: i8, inclusive_flag: i8)
                                -> postgres::Result<Option<RangeBound<S, T>>>
-                where S: BoundSided, T: PartialOrd+Normalizable+RawFromSql, R: Reader {
+                where S: BoundSided, T: PartialOrd+Normalizable+FromSql, R: Read {
             match tag & bound_flag {
                 0 => {
                     let type_ = match tag & inclusive_flag {
                         0 => BoundType::Exclusive,
                         _ => BoundType::Inclusive,
                     };
-                    let len = try!(rdr.read_be_i32()) as usize;
-                    let mut limit = LimitReader::new(rdr.by_ref(), len);
-                    let bound = try!(RawFromSql::raw_from_sql(ty, &mut limit));
+                    let len = try!(rdr.read_i32::<BigEndian>()) as u64;
+                    let mut limit = rdr.take(len);
+                    let bound = try!(FromSql::from_sql(ty, &mut limit));
                     if limit.limit() != 0 {
-                        return Err(postgres::Error::BadData);
+                        return Err(postgres::Error::BadResponse);
                     }
                     Ok(Some(RangeBound::new(bound, type_)))
                 }
@@ -101,19 +45,26 @@ impl<T> RawFromSql for Range<T> where T: PartialOrd+Normalizable+RawFromSql {
             }
         }
 
-        let element_type = ty.element_type().unwrap();
-        let lower = try!(make_bound(&element_type, rdr, t, RANGE_LOWER_UNBOUNDED, RANGE_LOWER_INCLUSIVE));
-        let upper = try!(make_bound(&element_type, rdr, t, RANGE_UPPER_UNBOUNDED, RANGE_UPPER_INCLUSIVE));
+        let lower = try!(make_bound(element_type, rdr, t, RANGE_LOWER_UNBOUNDED, RANGE_LOWER_INCLUSIVE));
+        let upper = try!(make_bound(element_type, rdr, t, RANGE_UPPER_UNBOUNDED, RANGE_UPPER_INCLUSIVE));
         Ok(Range::new(lower, upper))
+    }
+
+    fn accepts(ty: &Type) -> bool {
+        match ty.kind() {
+            &Kind::Range(ref inner) => <T as FromSql>::accepts(inner),
+            _ => false,
+        }
     }
 }
 
-from_sql_impl!(i32, Type::Int4Range);
-from_sql_impl!(i64, Type::Int8Range);
-from_sql_impl!(Timespec, Type::TsRange, Type::TstzRange);
+impl<T> ToSql for Range<T> where T: PartialOrd+Normalizable+ToSql {
+    fn to_sql<W: ?Sized+Write>(&self, ty: &Type, mut buf: &mut W) -> postgres::Result<IsNull> {
+        let element_type = match ty.kind() {
+            &Kind::Range(ref ty) => ty,
+            _ => panic!("unexpected type {:?}", ty)
+        };
 
-impl<T> RawToSql for Range<T> where T: PartialOrd+Normalizable+RawToSql {
-    fn raw_to_sql<W: Writer>(&self, ty: &Type, buf: &mut W) -> postgres::Result<()> {
         let mut tag = 0;
         if self.is_empty() {
             tag |= RANGE_EMPTY;
@@ -132,28 +83,32 @@ impl<T> RawToSql for Range<T> where T: PartialOrd+Normalizable+RawToSql {
 
         try!(buf.write_i8(tag));
 
-        fn write_value<S, T, W>(ty: &Type, buf: &mut W, v: Option<&RangeBound<S, T>>) -> postgres::Result<()>
-                where S: BoundSided, T: RawToSql, W: Writer {
+        fn write_value<S, T, W: ?Sized>(ty: &Type, mut buf: &mut W, v: Option<&RangeBound<S, T>>) -> postgres::Result<()>
+                where S: BoundSided, T: ToSql, W: Write {
             if let Some(bound) = v {
                 let mut inner_buf = vec![];
-                try!(bound.value.raw_to_sql(ty, &mut inner_buf));
-                try!(buf.write_be_u32(inner_buf.len() as u32));
+                try!(bound.value.to_sql(ty, &mut inner_buf));
+                try!(buf.write_u32::<BigEndian>(inner_buf.len() as u32));
                 try!(buf.write_all(&*inner_buf));
             }
             Ok(())
         }
 
-        let element_type = ty.element_type().unwrap();
         try!(write_value(&element_type, buf, self.lower()));
         try!(write_value(&element_type, buf, self.upper()));
 
-        Ok(())
+        Ok(IsNull::No)
     }
-}
 
-to_sql_impl!(i32, Type::Int4Range);
-to_sql_impl!(i64, Type::Int8Range);
-to_sql_impl!(Timespec, Type::TsRange, Type::TstzRange);
+    fn accepts(ty: &Type) -> bool {
+        match ty.kind() {
+            &Kind::Range(ref inner) => <T as ToSql>::accepts(inner),
+            _ => false,
+        }
+    }
+
+    to_sql_checked!();
+}
 
 #[cfg(test)]
 mod test {
@@ -187,11 +142,11 @@ mod test {
         let conn = Connection::connect("postgres://postgres@localhost", &SslMode::None).unwrap();
         for &(ref val, ref repr) in checks {
             let stmt = conn.prepare(&*format!("SELECT {}::{}", *repr, sql_type)).unwrap();
-            let result = stmt.query(&[]).unwrap().next().unwrap().get(0);
+            let result = stmt.query(&[]).unwrap().iter().next().unwrap().get(0);
             assert!(val == &result);
 
             let stmt = conn.prepare(&*format!("SELECT $1::{}", sql_type)).unwrap();
-            let result = stmt.query(&[val]).unwrap().next().unwrap().get(0);
+            let result = stmt.query(&[val]).unwrap().iter().next().unwrap().get(0);
             assert!(val == &result);
         }
     }

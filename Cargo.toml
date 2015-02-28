@@ -8,5 +8,9 @@ repository = "https://github.com/sfackler/rust-postgres-range"
 documentation = "https://sfackler.github.io/doc/postgres_range"
 
 [dependencies]
-postgres = "0.6"
 time = "0.1"
+postgres = "0.7.1"
+byteorder = "0.2"
+
+[dev-dependencies.postgres]
+features = ["time"]
