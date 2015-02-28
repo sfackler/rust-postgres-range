@@ -735,29 +735,33 @@
 <span id="693">693</span>
 <span id="694">694</span>
 <span id="695">695</span>
+<span id="696">696</span>
+<span id="697">697</span>
+<span id="698">698</span>
+<span id="699">699</span>
+<span id="700">700</span>
 </pre><pre class='rust '>
 <span class='doccomment'>//! Types dealing with ranges of values</span>
 <span class='attribute'>#<span class='op'>!</span>[<span class='ident'>doc</span>(<span class='ident'>html_root_url</span><span class='op'>=</span><span class='string'>&quot;https://sfackler.github.io/rust-postgres-range/doc&quot;</span>)]</span>
-<span class='attribute'>#<span class='op'>!</span>[<span class='ident'>cfg_attr</span>(<span class='ident'>test</span>, <span class='ident'>feature</span>(<span class='ident'>core</span>))]</span>
-<span class='attribute'>#<span class='op'>!</span>[<span class='ident'>feature</span>(<span class='ident'>io</span>)]</span>
+<span class='attribute'>#<span class='op'>!</span>[<span class='ident'>feature</span>(<span class='ident'>io</span>, <span class='ident'>core</span>)]</span>
 
+<span class='attribute'>#[<span class='ident'>macro_use</span>(<span class='ident'>to_sql_checked</span>)]</span>
 <span class='kw'>extern</span> <span class='kw'>crate</span> <span class='ident'>postgres</span>;
 <span class='kw'>extern</span> <span class='kw'>crate</span> <span class='ident'>time</span>;
+<span class='kw'>extern</span> <span class='kw'>crate</span> <span class='ident'>byteorder</span>;
 
 <span class='kw'>use</span> <span class='ident'>std</span>::<span class='ident'>cmp</span>::<span class='ident'>Ordering</span>;
 <span class='kw'>use</span> <span class='ident'>std</span>::<span class='ident'>fmt</span>;
 <span class='kw'>use</span> <span class='ident'>std</span>::<span class='ident'>i32</span>;
 <span class='kw'>use</span> <span class='ident'>std</span>::<span class='ident'>i64</span>;
+<span class='kw'>use</span> <span class='ident'>std</span>::<span class='ident'>marker</span>::<span class='ident'>MarkerTrait</span>;
+<span class='kw'>use</span> <span class='ident'>std</span>::<span class='ident'>marker</span>::<span class='ident'>PhantomData</span>;
 
 <span class='kw'>use</span> <span class='ident'>time</span>::<span class='ident'>Timespec</span>;
 
 <span class='kw'>use</span> <span class='ident'>BoundSide</span>::{<span class='ident'>Lower</span>, <span class='ident'>Upper</span>};
 <span class='kw'>use</span> <span class='ident'>BoundType</span>::{<span class='ident'>Inclusive</span>, <span class='ident'>Exclusive</span>};
 <span class='kw'>use</span> <span class='ident'>InnerRange</span>::{<span class='ident'>Empty</span>, <span class='ident'>Normal</span>};
-
-<span class='kw'>mod</span> <span class='ident'>postgres_range</span> {
-    <span class='kw'>pub</span> <span class='kw'>use</span> <span class='ident'>super</span>::{<span class='ident'>RangeBound</span>, <span class='ident'>Range</span>, <span class='ident'>BoundType</span>};
-}
 
 <span class='doccomment'>/// The `range!` macro can make it easier to create ranges. It roughly mirrors</span>
 <span class='doccomment'>/// traditional mathematic range syntax.</span>
@@ -795,55 +799,55 @@
 <span class='doccomment'>/// }</span>
 <span class='attribute'>#[<span class='ident'>macro_export</span>]</span>
 <span class='macro'>macro_rules</span><span class='macro'>!</span> <span class='ident'>range</span> {
-    (<span class='ident'>empty</span>) <span class='op'>=&gt;</span> (::<span class='ident'>postgres_range</span>::<span class='ident'>Range</span>::<span class='ident'>empty</span>());
-    (<span class='string'>&#39;(&#39;</span>,; <span class='string'>&#39;)&#39;</span>) <span class='op'>=&gt;</span> (::<span class='ident'>postgres_range</span>::<span class='ident'>Range</span>::<span class='ident'>new</span>(<span class='prelude-val'>None</span>, <span class='prelude-val'>None</span>));
+    (<span class='ident'>empty</span>) <span class='op'>=&gt;</span> (<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>crate</span>::<span class='ident'>Range</span>::<span class='ident'>empty</span>());
+    (<span class='string'>&#39;(&#39;</span>,; <span class='string'>&#39;)&#39;</span>) <span class='op'>=&gt;</span> (<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>crate</span>::<span class='ident'>Range</span>::<span class='ident'>new</span>(<span class='prelude-val'>None</span>, <span class='prelude-val'>None</span>));
     (<span class='string'>&#39;(&#39;</span>, <span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>h</span>:<span class='ident'>expr</span>; <span class='string'>&#39;)&#39;</span>) <span class='op'>=&gt;</span> (
-        ::<span class='ident'>postgres_range</span>::<span class='ident'>Range</span>::<span class='ident'>new</span>(<span class='prelude-val'>None</span>,
-            <span class='prelude-val'>Some</span>(::<span class='ident'>postgres_range</span>::<span class='ident'>RangeBound</span>::<span class='ident'>new</span>(<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>h</span>,
-                ::<span class='ident'>postgres_range</span>::<span class='ident'>BoundType</span>::<span class='ident'>Exclusive</span>)))
+        <span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>crate</span>::<span class='ident'>Range</span>::<span class='ident'>new</span>(<span class='prelude-val'>None</span>,
+            <span class='prelude-val'>Some</span>(<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>crate</span>::<span class='ident'>RangeBound</span>::<span class='ident'>new</span>(<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>h</span>,
+                <span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>crate</span>::<span class='ident'>BoundType</span>::<span class='ident'>Exclusive</span>)))
     );
     (<span class='string'>&#39;(&#39;</span>, <span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>h</span>:<span class='ident'>expr</span>; <span class='string'>&#39;]&#39;</span>) <span class='op'>=&gt;</span> (
-        ::<span class='ident'>postgres_range</span>::<span class='ident'>Range</span>::<span class='ident'>new</span>(<span class='prelude-val'>None</span>,
-            <span class='prelude-val'>Some</span>(::<span class='ident'>postgres_range</span>::<span class='ident'>RangeBound</span>::<span class='ident'>new</span>(<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>h</span>,
-                ::<span class='ident'>postgres_range</span>::<span class='ident'>BoundType</span>::<span class='ident'>Inclusive</span>)))
+        <span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>crate</span>::<span class='ident'>Range</span>::<span class='ident'>new</span>(<span class='prelude-val'>None</span>,
+            <span class='prelude-val'>Some</span>(<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>crate</span>::<span class='ident'>RangeBound</span>::<span class='ident'>new</span>(<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>h</span>,
+                <span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>crate</span>::<span class='ident'>BoundType</span>::<span class='ident'>Inclusive</span>)))
     );
     (<span class='string'>&#39;(&#39;</span> <span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>l</span>:<span class='ident'>expr</span>,; <span class='string'>&#39;)&#39;</span>) <span class='op'>=&gt;</span> (
-        ::<span class='ident'>postgres_range</span>::<span class='ident'>Range</span>::<span class='ident'>new</span>(
-            <span class='prelude-val'>Some</span>(::<span class='ident'>postgres_range</span>::<span class='ident'>RangeBound</span>::<span class='ident'>new</span>(<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>l</span>,
-                ::<span class='ident'>postgres_range</span>::<span class='ident'>BoundType</span>::<span class='ident'>Exclusive</span>)), <span class='prelude-val'>None</span>)
+        <span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>crate</span>::<span class='ident'>Range</span>::<span class='ident'>new</span>(
+            <span class='prelude-val'>Some</span>(<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>crate</span>::<span class='ident'>RangeBound</span>::<span class='ident'>new</span>(<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>l</span>,
+                <span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>crate</span>::<span class='ident'>BoundType</span>::<span class='ident'>Exclusive</span>)), <span class='prelude-val'>None</span>)
     );
     (<span class='string'>&#39;[&#39;</span> <span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>l</span>:<span class='ident'>expr</span>,; <span class='string'>&#39;)&#39;</span>) <span class='op'>=&gt;</span> (
-        ::<span class='ident'>postgres_range</span>::<span class='ident'>Range</span>::<span class='ident'>new</span>(
-            <span class='prelude-val'>Some</span>(::<span class='ident'>postgres_range</span>::<span class='ident'>RangeBound</span>::<span class='ident'>new</span>(<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>l</span>,
-                ::<span class='ident'>postgres_range</span>::<span class='ident'>BoundType</span>::<span class='ident'>Inclusive</span>)), <span class='prelude-val'>None</span>)
+        <span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>crate</span>::<span class='ident'>Range</span>::<span class='ident'>new</span>(
+            <span class='prelude-val'>Some</span>(<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>crate</span>::<span class='ident'>RangeBound</span>::<span class='ident'>new</span>(<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>l</span>,
+                <span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>crate</span>::<span class='ident'>BoundType</span>::<span class='ident'>Inclusive</span>)), <span class='prelude-val'>None</span>)
     );
     (<span class='string'>&#39;(&#39;</span> <span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>l</span>:<span class='ident'>expr</span>, <span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>h</span>:<span class='ident'>expr</span>; <span class='string'>&#39;)&#39;</span>) <span class='op'>=&gt;</span> (
-        ::<span class='ident'>postgres_range</span>::<span class='ident'>Range</span>::<span class='ident'>new</span>(
-            <span class='prelude-val'>Some</span>(::<span class='ident'>postgres_range</span>::<span class='ident'>RangeBound</span>::<span class='ident'>new</span>(<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>l</span>,
-                ::<span class='ident'>postgres_range</span>::<span class='ident'>BoundType</span>::<span class='ident'>Exclusive</span>)),
-            <span class='prelude-val'>Some</span>(::<span class='ident'>postgres_range</span>::<span class='ident'>RangeBound</span>::<span class='ident'>new</span>(<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>h</span>,
-                ::<span class='ident'>postgres_range</span>::<span class='ident'>BoundType</span>::<span class='ident'>Exclusive</span>)))
+        <span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>crate</span>::<span class='ident'>Range</span>::<span class='ident'>new</span>(
+            <span class='prelude-val'>Some</span>(<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>crate</span>::<span class='ident'>RangeBound</span>::<span class='ident'>new</span>(<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>l</span>,
+                <span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>crate</span>::<span class='ident'>BoundType</span>::<span class='ident'>Exclusive</span>)),
+            <span class='prelude-val'>Some</span>(<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>crate</span>::<span class='ident'>RangeBound</span>::<span class='ident'>new</span>(<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>h</span>,
+                <span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>crate</span>::<span class='ident'>BoundType</span>::<span class='ident'>Exclusive</span>)))
     );
     (<span class='string'>&#39;(&#39;</span> <span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>l</span>:<span class='ident'>expr</span>, <span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>h</span>:<span class='ident'>expr</span>; <span class='string'>&#39;]&#39;</span>) <span class='op'>=&gt;</span> (
-        ::<span class='ident'>postgres_range</span>::<span class='ident'>Range</span>::<span class='ident'>new</span>(
-            <span class='prelude-val'>Some</span>(::<span class='ident'>postgres_range</span>::<span class='ident'>RangeBound</span>::<span class='ident'>new</span>(<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>l</span>,
-                ::<span class='ident'>postgres_range</span>::<span class='ident'>BoundType</span>::<span class='ident'>Exclusive</span>)),
-            <span class='prelude-val'>Some</span>(::<span class='ident'>postgres_range</span>::<span class='ident'>RangeBound</span>::<span class='ident'>new</span>(<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>h</span>,
-                ::<span class='ident'>postgres_range</span>::<span class='ident'>BoundType</span>::<span class='ident'>Inclusive</span>)))
+        <span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>crate</span>::<span class='ident'>Range</span>::<span class='ident'>new</span>(
+            <span class='prelude-val'>Some</span>(<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>crate</span>::<span class='ident'>RangeBound</span>::<span class='ident'>new</span>(<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>l</span>,
+                <span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>crate</span>::<span class='ident'>BoundType</span>::<span class='ident'>Exclusive</span>)),
+            <span class='prelude-val'>Some</span>(<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>crate</span>::<span class='ident'>RangeBound</span>::<span class='ident'>new</span>(<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>h</span>,
+                <span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>crate</span>::<span class='ident'>BoundType</span>::<span class='ident'>Inclusive</span>)))
     );
     (<span class='string'>&#39;[&#39;</span> <span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>l</span>:<span class='ident'>expr</span>, <span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>h</span>:<span class='ident'>expr</span>; <span class='string'>&#39;)&#39;</span>) <span class='op'>=&gt;</span> (
-        ::<span class='ident'>postgres_range</span>::<span class='ident'>Range</span>::<span class='ident'>new</span>(
-            <span class='prelude-val'>Some</span>(::<span class='ident'>postgres_range</span>::<span class='ident'>RangeBound</span>::<span class='ident'>new</span>(<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>l</span>,
-                ::<span class='ident'>postgres_range</span>::<span class='ident'>BoundType</span>::<span class='ident'>Inclusive</span>)),
-            <span class='prelude-val'>Some</span>(::<span class='ident'>postgres_range</span>::<span class='ident'>RangeBound</span>::<span class='ident'>new</span>(<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>h</span>,
-                ::<span class='ident'>postgres_range</span>::<span class='ident'>BoundType</span>::<span class='ident'>Exclusive</span>)))
+        <span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>crate</span>::<span class='ident'>Range</span>::<span class='ident'>new</span>(
+            <span class='prelude-val'>Some</span>(<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>crate</span>::<span class='ident'>RangeBound</span>::<span class='ident'>new</span>(<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>l</span>,
+                <span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>crate</span>::<span class='ident'>BoundType</span>::<span class='ident'>Inclusive</span>)),
+            <span class='prelude-val'>Some</span>(<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>crate</span>::<span class='ident'>RangeBound</span>::<span class='ident'>new</span>(<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>h</span>,
+                <span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>crate</span>::<span class='ident'>BoundType</span>::<span class='ident'>Exclusive</span>)))
     );
     (<span class='string'>&#39;[&#39;</span> <span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>l</span>:<span class='ident'>expr</span>, <span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>h</span>:<span class='ident'>expr</span>; <span class='string'>&#39;]&#39;</span>) <span class='op'>=&gt;</span> (
-        ::<span class='ident'>postgres_range</span>::<span class='ident'>Range</span>::<span class='ident'>new</span>(
-            <span class='prelude-val'>Some</span>(::<span class='ident'>postgres_range</span>::<span class='ident'>RangeBound</span>::<span class='ident'>new</span>(<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>l</span>,
-                ::<span class='ident'>postgres_range</span>::<span class='ident'>BoundType</span>::<span class='ident'>Inclusive</span>)),
-            <span class='prelude-val'>Some</span>(::<span class='ident'>postgres_range</span>::<span class='ident'>RangeBound</span>::<span class='ident'>new</span>(<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>h</span>,
-                ::<span class='ident'>postgres_range</span>::<span class='ident'>BoundType</span>::<span class='ident'>Inclusive</span>)))
+        <span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>crate</span>::<span class='ident'>Range</span>::<span class='ident'>new</span>(
+            <span class='prelude-val'>Some</span>(<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>crate</span>::<span class='ident'>RangeBound</span>::<span class='ident'>new</span>(<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>l</span>,
+                <span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>crate</span>::<span class='ident'>BoundType</span>::<span class='ident'>Inclusive</span>)),
+            <span class='prelude-val'>Some</span>(<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>crate</span>::<span class='ident'>RangeBound</span>::<span class='ident'>new</span>(<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>h</span>,
+                <span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>crate</span>::<span class='ident'>BoundType</span>::<span class='ident'>Inclusive</span>)))
     )
 }
 
@@ -859,7 +863,7 @@
     <span class='doccomment'>///</span>
     <span class='doccomment'>/// The logic here should match the logic performed by the equivalent</span>
     <span class='doccomment'>/// Postgres type.</span>
-    <span class='kw'>fn</span> <span class='ident'>normalize</span><span class='op'>&lt;</span><span class='ident'>S</span><span class='op'>&gt;</span>(<span class='ident'>bound</span>: <span class='ident'>RangeBound</span><span class='op'>&lt;</span><span class='ident'>S</span>, <span class='ident'>Self</span><span class='op'>&gt;</span>) <span class='op'>-&gt;</span> <span class='ident'>RangeBound</span><span class='op'>&lt;</span><span class='ident'>S</span>, <span class='ident'>Self</span><span class='op'>&gt;</span> <span class='kw'>where</span> <span class='ident'>S</span>: <span class='ident'>BoundSided</span>;
+    <span class='kw'>fn</span> <span class='ident'>normalize</span><span class='op'>&lt;</span><span class='ident'>S</span><span class='op'>&gt;</span>(<span class='ident'>bound</span>: <span class='ident'>RangeBound</span><span class='op'>&lt;</span><span class='ident'>S</span>, <span class='kw'>Self</span><span class='op'>&gt;</span>) <span class='op'>-&gt;</span> <span class='ident'>RangeBound</span><span class='op'>&lt;</span><span class='ident'>S</span>, <span class='kw'>Self</span><span class='op'>&gt;</span> <span class='kw'>where</span> <span class='ident'>S</span>: <span class='ident'>BoundSided</span>;
 }
 
 <span class='macro'>macro_rules</span><span class='macro'>!</span> <span class='ident'>bounded_normalizable</span> {
@@ -902,7 +906,7 @@
 
 <span class='doccomment'>/// A trait implemented by phantom types indicating the type of the bound</span>
 <span class='attribute'>#[<span class='ident'>doc</span>(<span class='ident'>hidden</span>)]</span>
-<span class='kw'>pub</span> <span class='kw'>trait</span> <span class='ident'>BoundSided</span> {
+<span class='kw'>pub</span> <span class='kw'>trait</span> <span class='ident'>BoundSided</span>: <span class='ident'>MarkerTrait</span> {
     <span class='doccomment'>/// Returns the bound side this type corresponds to</span>
     <span class='kw'>fn</span> <span class='ident'>side</span>() <span class='op'>-&gt;</span> <span class='ident'>BoundSide</span>;
 }
@@ -943,7 +947,8 @@
     <span class='doccomment'>/// The value of the bound</span>
     <span class='kw'>pub</span> <span class='ident'>value</span>: <span class='ident'>T</span>,
     <span class='doccomment'>/// The type of the bound</span>
-    <span class='kw'>pub</span> <span class='ident'>type_</span>: <span class='ident'>BoundType</span>
+    <span class='kw'>pub</span> <span class='ident'>type_</span>: <span class='ident'>BoundType</span>,
+    <span class='ident'>_m</span>: <span class='ident'>PhantomData</span><span class='op'>&lt;</span><span class='op'>*</span><span class='kw-2'>mut</span> <span class='ident'>S</span><span class='op'>&gt;</span>,
 }
 
 <span class='kw'>impl</span><span class='op'>&lt;</span><span class='ident'>S</span>, <span class='ident'>T</span><span class='op'>&gt;</span> <span class='ident'>Copy</span> <span class='kw'>for</span> <span class='ident'>RangeBound</span><span class='op'>&lt;</span><span class='ident'>S</span>, <span class='ident'>T</span><span class='op'>&gt;</span> <span class='kw'>where</span> <span class='ident'>S</span>: <span class='ident'>BoundSided</span>, <span class='ident'>T</span>: <span class='ident'>Copy</span> {}
@@ -953,6 +958,7 @@
         <span class='ident'>RangeBound</span> {
             <span class='ident'>value</span>: <span class='self'>self</span>.<span class='ident'>value</span>.<span class='ident'>clone</span>(),
             <span class='ident'>type_</span>: <span class='self'>self</span>.<span class='ident'>type_</span>.<span class='ident'>clone</span>(),
+            <span class='ident'>_m</span>: <span class='ident'>PhantomData</span>,
         }
     }
 }
@@ -1012,7 +1018,11 @@
 <span class='kw'>impl</span><span class='op'>&lt;</span><span class='ident'>S</span>, <span class='ident'>T</span><span class='op'>&gt;</span> <span class='ident'>RangeBound</span><span class='op'>&lt;</span><span class='ident'>S</span>, <span class='ident'>T</span><span class='op'>&gt;</span> <span class='kw'>where</span> <span class='ident'>S</span>: <span class='ident'>BoundSided</span>, <span class='ident'>T</span>: <span class='ident'>PartialOrd</span> {
     <span class='doccomment'>/// Constructs a new range bound</span>
     <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>new</span>(<span class='ident'>value</span>: <span class='ident'>T</span>, <span class='ident'>type_</span>: <span class='ident'>BoundType</span>) <span class='op'>-&gt;</span> <span class='ident'>RangeBound</span><span class='op'>&lt;</span><span class='ident'>S</span>, <span class='ident'>T</span><span class='op'>&gt;</span> {
-        <span class='ident'>RangeBound</span> { <span class='ident'>value</span>: <span class='ident'>value</span>, <span class='ident'>type_</span>: <span class='ident'>type_</span> }
+        <span class='ident'>RangeBound</span> {
+            <span class='ident'>value</span>: <span class='ident'>value</span>,
+            <span class='ident'>type_</span>: <span class='ident'>type_</span>,
+            <span class='ident'>_m</span>: <span class='ident'>PhantomData</span>,
+        }
     }
 
     <span class='doccomment'>/// Determines if a value lies within the range specified by this bound.</span>
@@ -1026,7 +1036,7 @@
     }
 }
 
-<span class='kw'>struct</span> <span class='ident'>OptBound</span><span class='op'>&lt;</span><span class='lifetime'>&#39;a</span>, <span class='ident'>S</span>: <span class='ident'>BoundSided</span>, <span class='ident'>T</span>:<span class='lifetime'>&#39;a</span><span class='op'>&gt;</span>(<span class='prelude-ty'>Option</span><span class='op'>&lt;</span><span class='kw-2'>&amp;</span><span class='lifetime'>&#39;a</span> <span class='ident'>RangeBound</span><span class='op'>&lt;</span><span class='ident'>S</span>, <span class='ident'>T</span><span class='op'>&gt;&gt;</span>);
+<span class='kw'>struct</span> <span class='ident'>OptBound</span><span class='op'>&lt;</span><span class='lifetime'>&#39;a</span>, <span class='ident'>S</span>: <span class='lifetime'>&#39;a</span><span class='op'>+</span><span class='ident'>BoundSided</span>, <span class='ident'>T</span>:<span class='lifetime'>&#39;a</span><span class='op'>&gt;</span>(<span class='prelude-ty'>Option</span><span class='op'>&lt;</span><span class='kw-2'>&amp;</span><span class='lifetime'>&#39;a</span> <span class='ident'>RangeBound</span><span class='op'>&lt;</span><span class='ident'>S</span>, <span class='ident'>T</span><span class='op'>&gt;&gt;</span>);
 
 <span class='kw'>impl</span><span class='op'>&lt;</span><span class='lifetime'>&#39;a</span>, <span class='ident'>S</span>, <span class='ident'>T</span><span class='op'>&gt;</span> <span class='ident'>PartialEq</span> <span class='kw'>for</span> <span class='ident'>OptBound</span><span class='op'>&lt;</span><span class='lifetime'>&#39;a</span>, <span class='ident'>S</span>, <span class='ident'>T</span><span class='op'>&gt;</span> <span class='kw'>where</span> <span class='ident'>S</span>: <span class='ident'>BoundSided</span>, <span class='ident'>T</span>: <span class='ident'>PartialEq</span> {
     <span class='kw'>fn</span> <span class='ident'>eq</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>, <span class='kw-2'>&amp;</span><span class='ident'>OptBound</span>(<span class='kw-2'>ref</span> <span class='ident'>other</span>): <span class='kw-2'>&amp;</span><span class='ident'>OptBound</span><span class='op'>&lt;</span><span class='lifetime'>&#39;a</span>, <span class='ident'>S</span>, <span class='ident'>T</span><span class='op'>&gt;</span>) <span class='op'>-&gt;</span> <span class='ident'>bool</span> {
@@ -1201,8 +1211,8 @@
             <span class='ident'>order</span>(<span class='ident'>OptBound</span>(<span class='self'>self</span>.<span class='ident'>upper</span>()), <span class='ident'>OptBound</span>(<span class='ident'>other</span>.<span class='ident'>upper</span>()));
 
         <span class='kw'>let</span> <span class='ident'>discontiguous</span> <span class='op'>=</span> <span class='kw'>match</span> (<span class='ident'>u_lower</span>, <span class='ident'>l_upper</span>) {
-            (<span class='prelude-val'>Some</span>(<span class='kw-2'>&amp;</span><span class='ident'>RangeBound</span> { <span class='ident'>value</span>: <span class='kw-2'>ref</span> <span class='ident'>l</span>, <span class='ident'>type_</span>: <span class='ident'>Exclusive</span> }),
-             <span class='prelude-val'>Some</span>(<span class='kw-2'>&amp;</span><span class='ident'>RangeBound</span> { <span class='ident'>value</span>: <span class='kw-2'>ref</span> <span class='ident'>u</span>, <span class='ident'>type_</span>: <span class='ident'>Exclusive</span> })) <span class='op'>=&gt;</span> <span class='ident'>l</span> <span class='op'>&gt;=</span> <span class='ident'>u</span>,
+            (<span class='prelude-val'>Some</span>(<span class='kw-2'>&amp;</span><span class='ident'>RangeBound</span> { <span class='ident'>value</span>: <span class='kw-2'>ref</span> <span class='ident'>l</span>, <span class='ident'>type_</span>: <span class='ident'>Exclusive</span>, .. }),
+             <span class='prelude-val'>Some</span>(<span class='kw-2'>&amp;</span><span class='ident'>RangeBound</span> { <span class='ident'>value</span>: <span class='kw-2'>ref</span> <span class='ident'>u</span>, <span class='ident'>type_</span>: <span class='ident'>Exclusive</span>, .. })) <span class='op'>=&gt;</span> <span class='ident'>l</span> <span class='op'>&gt;=</span> <span class='ident'>u</span>,
             (<span class='prelude-val'>Some</span>(<span class='kw-2'>&amp;</span><span class='ident'>RangeBound</span> { <span class='ident'>value</span>: <span class='kw-2'>ref</span> <span class='ident'>l</span>, .. }),
              <span class='prelude-val'>Some</span>(<span class='kw-2'>&amp;</span><span class='ident'>RangeBound</span> { <span class='ident'>value</span>: <span class='kw-2'>ref</span> <span class='ident'>u</span>, .. })) <span class='op'>=&gt;</span> <span class='ident'>l</span> <span class='op'>&gt;</span> <span class='ident'>u</span>,
             _ <span class='op'>=&gt;</span> <span class='boolval'>false</span>

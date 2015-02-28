@@ -222,119 +222,13 @@
 <span id="180">180</span>
 <span id="181">181</span>
 <span id="182">182</span>
-<span id="183">183</span>
-<span id="184">184</span>
-<span id="185">185</span>
-<span id="186">186</span>
-<span id="187">187</span>
-<span id="188">188</span>
-<span id="189">189</span>
-<span id="190">190</span>
-<span id="191">191</span>
-<span id="192">192</span>
-<span id="193">193</span>
-<span id="194">194</span>
-<span id="195">195</span>
-<span id="196">196</span>
-<span id="197">197</span>
-<span id="198">198</span>
-<span id="199">199</span>
-<span id="200">200</span>
-<span id="201">201</span>
-<span id="202">202</span>
-<span id="203">203</span>
-<span id="204">204</span>
-<span id="205">205</span>
-<span id="206">206</span>
-<span id="207">207</span>
-<span id="208">208</span>
-<span id="209">209</span>
-<span id="210">210</span>
-<span id="211">211</span>
-<span id="212">212</span>
-<span id="213">213</span>
-<span id="214">214</span>
-<span id="215">215</span>
-<span id="216">216</span>
-<span id="217">217</span>
-<span id="218">218</span>
-<span id="219">219</span>
-<span id="220">220</span>
-<span id="221">221</span>
-<span id="222">222</span>
-<span id="223">223</span>
-<span id="224">224</span>
-<span id="225">225</span>
-<span id="226">226</span>
-<span id="227">227</span>
 </pre><pre class='rust '>
-<span class='kw'>use</span> <span class='ident'>std</span>::<span class='ident'>old_io</span>::<span class='ident'>ByRefReader</span>;
-<span class='kw'>use</span> <span class='ident'>std</span>::<span class='ident'>old_io</span>::<span class='ident'>util</span>::<span class='ident'>LimitReader</span>;
+<span class='kw'>use</span> <span class='ident'>std</span>::<span class='ident'>io</span>::<span class='ident'>prelude</span>::<span class='op'>*</span>;
+<span class='kw'>use</span> <span class='ident'>postgres</span>::{<span class='self'>self</span>, <span class='ident'>Type</span>, <span class='ident'>Kind</span>, <span class='ident'>ToSql</span>, <span class='ident'>FromSql</span>};
+<span class='kw'>use</span> <span class='ident'>postgres</span>::<span class='ident'>types</span>::<span class='ident'>IsNull</span>;
+<span class='kw'>use</span> <span class='ident'>byteorder</span>::{<span class='ident'>ReadBytesExt</span>, <span class='ident'>WriteBytesExt</span>, <span class='ident'>BigEndian</span>};
 
-<span class='kw'>use</span> <span class='ident'>time</span>::<span class='ident'>Timespec</span>;
-<span class='kw'>use</span> <span class='ident'>postgres</span>::<span class='ident'>Type</span>;
-<span class='kw'>use</span> <span class='ident'>postgres</span>::<span class='ident'>types</span>::{<span class='ident'>RawFromSql</span>, <span class='ident'>RawToSql</span>};
-
-<span class='kw'>use</span> {<span class='ident'>postgres</span>, <span class='ident'>Range</span>, <span class='ident'>RangeBound</span>, <span class='ident'>BoundType</span>, <span class='ident'>BoundSided</span>, <span class='ident'>Normalizable</span>};
-
-<span class='macro'>macro_rules</span><span class='macro'>!</span> <span class='ident'>check_types</span> {
-    (<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>actual</span>:<span class='ident'>ident</span>, $(<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>expected</span>:<span class='ident'>pat</span>),<span class='op'>+</span>) <span class='op'>=&gt;</span> (
-        <span class='kw'>match</span> <span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>actual</span> {
-            $(<span class='kw-2'>&amp;</span><span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>expected</span>)<span class='op'>|</span><span class='op'>+</span> <span class='op'>=&gt;</span> {}
-            <span class='ident'>actual</span> <span class='op'>=&gt;</span> <span class='kw'>return</span> <span class='prelude-val'>Err</span>(::<span class='ident'>postgres</span>::<span class='ident'>Error</span>::<span class='ident'>WrongType</span>(<span class='ident'>actual</span>.<span class='ident'>clone</span>()))
-        }
-    )
-}
-
-<span class='macro'>macro_rules</span><span class='macro'>!</span> <span class='ident'>from_sql_impl</span> {
-    (<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>t</span>:<span class='ident'>ty</span>, $(<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>oid</span>:<span class='ident'>pat</span>),<span class='op'>+</span>) <span class='op'>=&gt;</span> {
-        <span class='kw'>impl</span> ::<span class='ident'>postgres</span>::<span class='ident'>FromSql</span> <span class='kw'>for</span> <span class='prelude-ty'>Option</span><span class='op'>&lt;</span>::<span class='ident'>Range</span><span class='op'>&lt;</span><span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>t</span><span class='op'>&gt;&gt;</span> {
-            <span class='kw'>fn</span> <span class='ident'>from_sql</span>(<span class='ident'>ty</span>: <span class='kw-2'>&amp;</span>::<span class='ident'>postgres</span>::<span class='ident'>Type</span>, <span class='ident'>raw</span>: <span class='prelude-ty'>Option</span><span class='op'>&lt;</span><span class='kw-2'>&amp;</span>[<span class='ident'>u8</span>]<span class='op'>&gt;</span>) <span class='op'>-&gt;</span> ::<span class='ident'>postgres</span>::<span class='prelude-ty'>Result</span><span class='op'>&lt;</span><span class='ident'>Self</span><span class='op'>&gt;</span> {
-                <span class='macro'>check_types</span><span class='macro'>!</span>(<span class='ident'>ty</span>, $(<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>oid</span>),<span class='op'>+</span>);
-
-                <span class='kw'>match</span> <span class='ident'>raw</span> {
-                    <span class='prelude-val'>Some</span>(<span class='kw-2'>mut</span> <span class='ident'>raw</span>) <span class='op'>=&gt;</span> ::<span class='ident'>postgres</span>::<span class='ident'>types</span>::<span class='ident'>RawFromSql</span>::<span class='ident'>raw_from_sql</span>(<span class='ident'>ty</span>, <span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>raw</span>).<span class='ident'>map</span>(<span class='prelude-val'>Some</span>),
-                    <span class='prelude-val'>None</span> <span class='op'>=&gt;</span> <span class='prelude-val'>Ok</span>(<span class='prelude-val'>None</span>),
-                }
-            }
-        }
-
-        <span class='kw'>impl</span> ::<span class='ident'>postgres</span>::<span class='ident'>FromSql</span> <span class='kw'>for</span> ::<span class='ident'>Range</span><span class='op'>&lt;</span><span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>t</span><span class='op'>&gt;</span> {
-            <span class='kw'>fn</span> <span class='ident'>from_sql</span>(<span class='ident'>ty</span>: <span class='kw-2'>&amp;</span>::<span class='ident'>postgres</span>::<span class='ident'>Type</span>, <span class='ident'>raw</span>: <span class='prelude-ty'>Option</span><span class='op'>&lt;</span><span class='kw-2'>&amp;</span>[<span class='ident'>u8</span>]<span class='op'>&gt;</span>) <span class='op'>-&gt;</span> ::<span class='ident'>postgres</span>::<span class='prelude-ty'>Result</span><span class='op'>&lt;</span><span class='ident'>Self</span><span class='op'>&gt;</span> {
-                <span class='kw'>let</span> <span class='ident'>v</span>: ::<span class='ident'>postgres</span>::<span class='prelude-ty'>Result</span><span class='op'>&lt;</span><span class='prelude-ty'>Option</span><span class='op'>&lt;</span><span class='ident'>Self</span><span class='op'>&gt;&gt;</span> <span class='op'>=</span> ::<span class='ident'>postgres</span>::<span class='ident'>FromSql</span>::<span class='ident'>from_sql</span>(<span class='ident'>ty</span>, <span class='ident'>raw</span>);
-                <span class='kw'>match</span> <span class='ident'>v</span> {
-                    <span class='prelude-val'>Ok</span>(<span class='prelude-val'>None</span>) <span class='op'>=&gt;</span> <span class='prelude-val'>Err</span>(::<span class='ident'>postgres</span>::<span class='ident'>Error</span>::<span class='ident'>WasNull</span>),
-                    <span class='prelude-val'>Ok</span>(<span class='prelude-val'>Some</span>(<span class='ident'>v</span>)) <span class='op'>=&gt;</span> <span class='prelude-val'>Ok</span>(<span class='ident'>v</span>),
-                    <span class='prelude-val'>Err</span>(<span class='ident'>err</span>) <span class='op'>=&gt;</span> <span class='prelude-val'>Err</span>(<span class='ident'>err</span>),
-                }
-            }
-        }
-    }
-}
-
-<span class='macro'>macro_rules</span><span class='macro'>!</span> <span class='ident'>to_sql_impl</span> {
-    (<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>t</span>:<span class='ident'>ty</span>, $(<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>oid</span>:<span class='ident'>pat</span>),<span class='op'>+</span>) <span class='op'>=&gt;</span> {
-        <span class='kw'>impl</span> ::<span class='ident'>postgres</span>::<span class='ident'>ToSql</span> <span class='kw'>for</span> ::<span class='ident'>Range</span><span class='op'>&lt;</span><span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>t</span><span class='op'>&gt;</span> {
-            <span class='kw'>fn</span> <span class='ident'>to_sql</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>, <span class='ident'>ty</span>: <span class='kw-2'>&amp;</span>::<span class='ident'>postgres</span>::<span class='ident'>Type</span>) <span class='op'>-&gt;</span> ::<span class='ident'>postgres</span>::<span class='prelude-ty'>Result</span><span class='op'>&lt;</span><span class='prelude-ty'>Option</span><span class='op'>&lt;</span><span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>u8</span><span class='op'>&gt;&gt;</span><span class='op'>&gt;</span> {
-                <span class='macro'>check_types</span><span class='macro'>!</span>(<span class='ident'>ty</span>, $(<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>oid</span>),<span class='op'>+</span>);
-
-                <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>writer</span> <span class='op'>=</span> <span class='macro'>vec</span><span class='macro'>!</span>[];
-                <span class='macro'>try</span><span class='macro'>!</span>(<span class='self'>self</span>.<span class='ident'>raw_to_sql</span>(<span class='ident'>ty</span>, <span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>writer</span>));
-                <span class='prelude-val'>Ok</span>(<span class='prelude-val'>Some</span>(<span class='ident'>writer</span>))
-            }
-        }
-
-        <span class='kw'>impl</span> ::<span class='ident'>postgres</span>::<span class='ident'>ToSql</span> <span class='kw'>for</span> <span class='prelude-ty'>Option</span><span class='op'>&lt;</span>::<span class='ident'>Range</span><span class='op'>&lt;</span><span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>t</span><span class='op'>&gt;&gt;</span> {
-            <span class='kw'>fn</span> <span class='ident'>to_sql</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>, <span class='ident'>ty</span>: <span class='kw-2'>&amp;</span>::<span class='ident'>postgres</span>::<span class='ident'>Type</span>) <span class='op'>-&gt;</span> ::<span class='ident'>postgres</span>::<span class='prelude-ty'>Result</span><span class='op'>&lt;</span><span class='prelude-ty'>Option</span><span class='op'>&lt;</span><span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>u8</span><span class='op'>&gt;&gt;</span><span class='op'>&gt;</span> {
-                <span class='macro'>check_types</span><span class='macro'>!</span>(<span class='ident'>ty</span>, $(<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>oid</span>),<span class='op'>+</span>);
-                <span class='kw'>match</span> <span class='op'>*</span><span class='self'>self</span> {
-                    <span class='prelude-val'>Some</span>(<span class='kw-2'>ref</span> <span class='ident'>arr</span>) <span class='op'>=&gt;</span> <span class='ident'>arr</span>.<span class='ident'>to_sql</span>(<span class='ident'>ty</span>),
-                    <span class='prelude-val'>None</span> <span class='op'>=&gt;</span> <span class='prelude-val'>Ok</span>(<span class='prelude-val'>None</span>)
-                }
-            }
-        }
-    }
-}
+<span class='kw'>use</span> {<span class='ident'>Range</span>, <span class='ident'>RangeBound</span>, <span class='ident'>BoundType</span>, <span class='ident'>BoundSided</span>, <span class='ident'>Normalizable</span>};
 
 <span class='kw'>const</span> <span class='ident'>RANGE_UPPER_UNBOUNDED</span>: <span class='ident'>i8</span> <span class='op'>=</span> <span class='number'>0b0001_0000</span>;
 <span class='kw'>const</span> <span class='ident'>RANGE_LOWER_UNBOUNDED</span>: <span class='ident'>i8</span> <span class='op'>=</span> <span class='number'>0b0000_1000</span>;
@@ -342,8 +236,13 @@
 <span class='kw'>const</span> <span class='ident'>RANGE_LOWER_INCLUSIVE</span>: <span class='ident'>i8</span> <span class='op'>=</span> <span class='number'>0b0000_0010</span>;
 <span class='kw'>const</span> <span class='ident'>RANGE_EMPTY</span>: <span class='ident'>i8</span>           <span class='op'>=</span> <span class='number'>0b0000_0001</span>;
 
-<span class='kw'>impl</span><span class='op'>&lt;</span><span class='ident'>T</span><span class='op'>&gt;</span> <span class='ident'>RawFromSql</span> <span class='kw'>for</span> <span class='ident'>Range</span><span class='op'>&lt;</span><span class='ident'>T</span><span class='op'>&gt;</span> <span class='kw'>where</span> <span class='ident'>T</span>: <span class='ident'>PartialOrd</span><span class='op'>+</span><span class='ident'>Normalizable</span><span class='op'>+</span><span class='ident'>RawFromSql</span> {
-    <span class='kw'>fn</span> <span class='ident'>raw_from_sql</span><span class='op'>&lt;</span><span class='ident'>R</span>: <span class='ident'>Reader</span><span class='op'>&gt;</span>(<span class='ident'>ty</span>: <span class='kw-2'>&amp;</span><span class='ident'>Type</span>, <span class='ident'>rdr</span>: <span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>R</span>) <span class='op'>-&gt;</span> <span class='ident'>postgres</span>::<span class='prelude-ty'>Result</span><span class='op'>&lt;</span><span class='ident'>Range</span><span class='op'>&lt;</span><span class='ident'>T</span><span class='op'>&gt;&gt;</span> {
+<span class='kw'>impl</span><span class='op'>&lt;</span><span class='ident'>T</span><span class='op'>&gt;</span> <span class='ident'>FromSql</span> <span class='kw'>for</span> <span class='ident'>Range</span><span class='op'>&lt;</span><span class='ident'>T</span><span class='op'>&gt;</span> <span class='kw'>where</span> <span class='ident'>T</span>: <span class='ident'>PartialOrd</span><span class='op'>+</span><span class='ident'>Normalizable</span><span class='op'>+</span><span class='ident'>FromSql</span> {
+    <span class='kw'>fn</span> <span class='ident'>from_sql</span><span class='op'>&lt;</span><span class='ident'>R</span>: <span class='ident'>Read</span><span class='op'>&gt;</span>(<span class='ident'>ty</span>: <span class='kw-2'>&amp;</span><span class='ident'>Type</span>, <span class='ident'>rdr</span>: <span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>R</span>) <span class='op'>-&gt;</span> <span class='ident'>postgres</span>::<span class='prelude-ty'>Result</span><span class='op'>&lt;</span><span class='ident'>Range</span><span class='op'>&lt;</span><span class='ident'>T</span><span class='op'>&gt;&gt;</span> {
+        <span class='kw'>let</span> <span class='ident'>element_type</span> <span class='op'>=</span> <span class='kw'>match</span> <span class='ident'>ty</span>.<span class='ident'>kind</span>() {
+            <span class='kw-2'>&amp;</span><span class='ident'>Kind</span>::<span class='ident'>Range</span>(<span class='kw-2'>ref</span> <span class='ident'>ty</span>) <span class='op'>=&gt;</span> <span class='ident'>ty</span>,
+            _ <span class='op'>=&gt;</span> <span class='macro'>panic</span><span class='macro'>!</span>(<span class='string'>&quot;unexpected type {:?}&quot;</span>, <span class='ident'>ty</span>)
+        };
+
         <span class='kw'>let</span> <span class='ident'>t</span> <span class='op'>=</span> <span class='macro'>try</span><span class='macro'>!</span>(<span class='ident'>rdr</span>.<span class='ident'>read_i8</span>());
 
         <span class='kw'>if</span> <span class='ident'>t</span> <span class='kw-2'>&amp;</span> <span class='ident'>RANGE_EMPTY</span> <span class='op'>!=</span> <span class='number'>0</span> {
@@ -352,18 +251,18 @@
 
         <span class='kw'>fn</span> <span class='ident'>make_bound</span><span class='op'>&lt;</span><span class='ident'>S</span>, <span class='ident'>T</span>, <span class='ident'>R</span><span class='op'>&gt;</span>(<span class='ident'>ty</span>: <span class='kw-2'>&amp;</span><span class='ident'>Type</span>, <span class='ident'>rdr</span>: <span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>R</span>, <span class='ident'>tag</span>: <span class='ident'>i8</span>, <span class='ident'>bound_flag</span>: <span class='ident'>i8</span>, <span class='ident'>inclusive_flag</span>: <span class='ident'>i8</span>)
                                <span class='op'>-&gt;</span> <span class='ident'>postgres</span>::<span class='prelude-ty'>Result</span><span class='op'>&lt;</span><span class='prelude-ty'>Option</span><span class='op'>&lt;</span><span class='ident'>RangeBound</span><span class='op'>&lt;</span><span class='ident'>S</span>, <span class='ident'>T</span><span class='op'>&gt;&gt;</span><span class='op'>&gt;</span>
-                <span class='kw'>where</span> <span class='ident'>S</span>: <span class='ident'>BoundSided</span>, <span class='ident'>T</span>: <span class='ident'>PartialOrd</span><span class='op'>+</span><span class='ident'>Normalizable</span><span class='op'>+</span><span class='ident'>RawFromSql</span>, <span class='ident'>R</span>: <span class='ident'>Reader</span> {
+                <span class='kw'>where</span> <span class='ident'>S</span>: <span class='ident'>BoundSided</span>, <span class='ident'>T</span>: <span class='ident'>PartialOrd</span><span class='op'>+</span><span class='ident'>Normalizable</span><span class='op'>+</span><span class='ident'>FromSql</span>, <span class='ident'>R</span>: <span class='ident'>Read</span> {
             <span class='kw'>match</span> <span class='ident'>tag</span> <span class='kw-2'>&amp;</span> <span class='ident'>bound_flag</span> {
                 <span class='number'>0</span> <span class='op'>=&gt;</span> {
                     <span class='kw'>let</span> <span class='ident'>type_</span> <span class='op'>=</span> <span class='kw'>match</span> <span class='ident'>tag</span> <span class='kw-2'>&amp;</span> <span class='ident'>inclusive_flag</span> {
                         <span class='number'>0</span> <span class='op'>=&gt;</span> <span class='ident'>BoundType</span>::<span class='ident'>Exclusive</span>,
                         _ <span class='op'>=&gt;</span> <span class='ident'>BoundType</span>::<span class='ident'>Inclusive</span>,
                     };
-                    <span class='kw'>let</span> <span class='ident'>len</span> <span class='op'>=</span> <span class='macro'>try</span><span class='macro'>!</span>(<span class='ident'>rdr</span>.<span class='ident'>read_be_i32</span>()) <span class='kw'>as</span> <span class='ident'>usize</span>;
-                    <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>limit</span> <span class='op'>=</span> <span class='ident'>LimitReader</span>::<span class='ident'>new</span>(<span class='ident'>rdr</span>.<span class='ident'>by_ref</span>(), <span class='ident'>len</span>);
-                    <span class='kw'>let</span> <span class='ident'>bound</span> <span class='op'>=</span> <span class='macro'>try</span><span class='macro'>!</span>(<span class='ident'>RawFromSql</span>::<span class='ident'>raw_from_sql</span>(<span class='ident'>ty</span>, <span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>limit</span>));
+                    <span class='kw'>let</span> <span class='ident'>len</span> <span class='op'>=</span> <span class='macro'>try</span><span class='macro'>!</span>(<span class='ident'>rdr</span>.<span class='ident'>read_i32</span>::<span class='op'>&lt;</span><span class='ident'>BigEndian</span><span class='op'>&gt;</span>()) <span class='kw'>as</span> <span class='ident'>u64</span>;
+                    <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>limit</span> <span class='op'>=</span> <span class='ident'>rdr</span>.<span class='ident'>take</span>(<span class='ident'>len</span>);
+                    <span class='kw'>let</span> <span class='ident'>bound</span> <span class='op'>=</span> <span class='macro'>try</span><span class='macro'>!</span>(<span class='ident'>FromSql</span>::<span class='ident'>from_sql</span>(<span class='ident'>ty</span>, <span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>limit</span>));
                     <span class='kw'>if</span> <span class='ident'>limit</span>.<span class='ident'>limit</span>() <span class='op'>!=</span> <span class='number'>0</span> {
-                        <span class='kw'>return</span> <span class='prelude-val'>Err</span>(<span class='ident'>postgres</span>::<span class='ident'>Error</span>::<span class='ident'>BadData</span>);
+                        <span class='kw'>return</span> <span class='prelude-val'>Err</span>(<span class='ident'>postgres</span>::<span class='ident'>Error</span>::<span class='ident'>BadResponse</span>);
                     }
                     <span class='prelude-val'>Ok</span>(<span class='prelude-val'>Some</span>(<span class='ident'>RangeBound</span>::<span class='ident'>new</span>(<span class='ident'>bound</span>, <span class='ident'>type_</span>)))
                 }
@@ -371,19 +270,26 @@
             }
         }
 
-        <span class='kw'>let</span> <span class='ident'>element_type</span> <span class='op'>=</span> <span class='ident'>ty</span>.<span class='ident'>element_type</span>().<span class='ident'>unwrap</span>();
-        <span class='kw'>let</span> <span class='ident'>lower</span> <span class='op'>=</span> <span class='macro'>try</span><span class='macro'>!</span>(<span class='ident'>make_bound</span>(<span class='kw-2'>&amp;</span><span class='ident'>element_type</span>, <span class='ident'>rdr</span>, <span class='ident'>t</span>, <span class='ident'>RANGE_LOWER_UNBOUNDED</span>, <span class='ident'>RANGE_LOWER_INCLUSIVE</span>));
-        <span class='kw'>let</span> <span class='ident'>upper</span> <span class='op'>=</span> <span class='macro'>try</span><span class='macro'>!</span>(<span class='ident'>make_bound</span>(<span class='kw-2'>&amp;</span><span class='ident'>element_type</span>, <span class='ident'>rdr</span>, <span class='ident'>t</span>, <span class='ident'>RANGE_UPPER_UNBOUNDED</span>, <span class='ident'>RANGE_UPPER_INCLUSIVE</span>));
+        <span class='kw'>let</span> <span class='ident'>lower</span> <span class='op'>=</span> <span class='macro'>try</span><span class='macro'>!</span>(<span class='ident'>make_bound</span>(<span class='ident'>element_type</span>, <span class='ident'>rdr</span>, <span class='ident'>t</span>, <span class='ident'>RANGE_LOWER_UNBOUNDED</span>, <span class='ident'>RANGE_LOWER_INCLUSIVE</span>));
+        <span class='kw'>let</span> <span class='ident'>upper</span> <span class='op'>=</span> <span class='macro'>try</span><span class='macro'>!</span>(<span class='ident'>make_bound</span>(<span class='ident'>element_type</span>, <span class='ident'>rdr</span>, <span class='ident'>t</span>, <span class='ident'>RANGE_UPPER_UNBOUNDED</span>, <span class='ident'>RANGE_UPPER_INCLUSIVE</span>));
         <span class='prelude-val'>Ok</span>(<span class='ident'>Range</span>::<span class='ident'>new</span>(<span class='ident'>lower</span>, <span class='ident'>upper</span>))
+    }
+
+    <span class='kw'>fn</span> <span class='ident'>accepts</span>(<span class='ident'>ty</span>: <span class='kw-2'>&amp;</span><span class='ident'>Type</span>) <span class='op'>-&gt;</span> <span class='ident'>bool</span> {
+        <span class='kw'>match</span> <span class='ident'>ty</span>.<span class='ident'>kind</span>() {
+            <span class='kw-2'>&amp;</span><span class='ident'>Kind</span>::<span class='ident'>Range</span>(<span class='kw-2'>ref</span> <span class='ident'>inner</span>) <span class='op'>=&gt;</span> <span class='op'>&lt;</span><span class='ident'>T</span> <span class='kw'>as</span> <span class='ident'>FromSql</span><span class='op'>&gt;</span>::<span class='ident'>accepts</span>(<span class='ident'>inner</span>),
+            _ <span class='op'>=&gt;</span> <span class='boolval'>false</span>,
+        }
     }
 }
 
-<span class='macro'>from_sql_impl</span><span class='macro'>!</span>(<span class='ident'>i32</span>, <span class='ident'>Type</span>::<span class='ident'>Int4Range</span>);
-<span class='macro'>from_sql_impl</span><span class='macro'>!</span>(<span class='ident'>i64</span>, <span class='ident'>Type</span>::<span class='ident'>Int8Range</span>);
-<span class='macro'>from_sql_impl</span><span class='macro'>!</span>(<span class='ident'>Timespec</span>, <span class='ident'>Type</span>::<span class='ident'>TsRange</span>, <span class='ident'>Type</span>::<span class='ident'>TstzRange</span>);
+<span class='kw'>impl</span><span class='op'>&lt;</span><span class='ident'>T</span><span class='op'>&gt;</span> <span class='ident'>ToSql</span> <span class='kw'>for</span> <span class='ident'>Range</span><span class='op'>&lt;</span><span class='ident'>T</span><span class='op'>&gt;</span> <span class='kw'>where</span> <span class='ident'>T</span>: <span class='ident'>PartialOrd</span><span class='op'>+</span><span class='ident'>Normalizable</span><span class='op'>+</span><span class='ident'>ToSql</span> {
+    <span class='kw'>fn</span> <span class='ident'>to_sql</span><span class='op'>&lt;</span><span class='ident'>W</span>: ?<span class='ident'>Sized</span><span class='op'>+</span><span class='ident'>Write</span><span class='op'>&gt;</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>, <span class='ident'>ty</span>: <span class='kw-2'>&amp;</span><span class='ident'>Type</span>, <span class='kw-2'>mut</span> <span class='ident'>buf</span>: <span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>W</span>) <span class='op'>-&gt;</span> <span class='ident'>postgres</span>::<span class='prelude-ty'>Result</span><span class='op'>&lt;</span><span class='ident'>IsNull</span><span class='op'>&gt;</span> {
+        <span class='kw'>let</span> <span class='ident'>element_type</span> <span class='op'>=</span> <span class='kw'>match</span> <span class='ident'>ty</span>.<span class='ident'>kind</span>() {
+            <span class='kw-2'>&amp;</span><span class='ident'>Kind</span>::<span class='ident'>Range</span>(<span class='kw-2'>ref</span> <span class='ident'>ty</span>) <span class='op'>=&gt;</span> <span class='ident'>ty</span>,
+            _ <span class='op'>=&gt;</span> <span class='macro'>panic</span><span class='macro'>!</span>(<span class='string'>&quot;unexpected type {:?}&quot;</span>, <span class='ident'>ty</span>)
+        };
 
-<span class='kw'>impl</span><span class='op'>&lt;</span><span class='ident'>T</span><span class='op'>&gt;</span> <span class='ident'>RawToSql</span> <span class='kw'>for</span> <span class='ident'>Range</span><span class='op'>&lt;</span><span class='ident'>T</span><span class='op'>&gt;</span> <span class='kw'>where</span> <span class='ident'>T</span>: <span class='ident'>PartialOrd</span><span class='op'>+</span><span class='ident'>Normalizable</span><span class='op'>+</span><span class='ident'>RawToSql</span> {
-    <span class='kw'>fn</span> <span class='ident'>raw_to_sql</span><span class='op'>&lt;</span><span class='ident'>W</span>: <span class='ident'>Writer</span><span class='op'>&gt;</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>, <span class='ident'>ty</span>: <span class='kw-2'>&amp;</span><span class='ident'>Type</span>, <span class='ident'>buf</span>: <span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>W</span>) <span class='op'>-&gt;</span> <span class='ident'>postgres</span>::<span class='prelude-ty'>Result</span><span class='op'>&lt;</span>()<span class='op'>&gt;</span> {
         <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>tag</span> <span class='op'>=</span> <span class='number'>0</span>;
         <span class='kw'>if</span> <span class='self'>self</span>.<span class='ident'>is_empty</span>() {
             <span class='ident'>tag</span> <span class='op'>|=</span> <span class='ident'>RANGE_EMPTY</span>;
@@ -402,28 +308,32 @@
 
         <span class='macro'>try</span><span class='macro'>!</span>(<span class='ident'>buf</span>.<span class='ident'>write_i8</span>(<span class='ident'>tag</span>));
 
-        <span class='kw'>fn</span> <span class='ident'>write_value</span><span class='op'>&lt;</span><span class='ident'>S</span>, <span class='ident'>T</span>, <span class='ident'>W</span><span class='op'>&gt;</span>(<span class='ident'>ty</span>: <span class='kw-2'>&amp;</span><span class='ident'>Type</span>, <span class='ident'>buf</span>: <span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>W</span>, <span class='ident'>v</span>: <span class='prelude-ty'>Option</span><span class='op'>&lt;</span><span class='kw-2'>&amp;</span><span class='ident'>RangeBound</span><span class='op'>&lt;</span><span class='ident'>S</span>, <span class='ident'>T</span><span class='op'>&gt;&gt;</span>) <span class='op'>-&gt;</span> <span class='ident'>postgres</span>::<span class='prelude-ty'>Result</span><span class='op'>&lt;</span>()<span class='op'>&gt;</span>
-                <span class='kw'>where</span> <span class='ident'>S</span>: <span class='ident'>BoundSided</span>, <span class='ident'>T</span>: <span class='ident'>RawToSql</span>, <span class='ident'>W</span>: <span class='ident'>Writer</span> {
+        <span class='kw'>fn</span> <span class='ident'>write_value</span><span class='op'>&lt;</span><span class='ident'>S</span>, <span class='ident'>T</span>, <span class='ident'>W</span>: ?<span class='ident'>Sized</span><span class='op'>&gt;</span>(<span class='ident'>ty</span>: <span class='kw-2'>&amp;</span><span class='ident'>Type</span>, <span class='kw-2'>mut</span> <span class='ident'>buf</span>: <span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>W</span>, <span class='ident'>v</span>: <span class='prelude-ty'>Option</span><span class='op'>&lt;</span><span class='kw-2'>&amp;</span><span class='ident'>RangeBound</span><span class='op'>&lt;</span><span class='ident'>S</span>, <span class='ident'>T</span><span class='op'>&gt;&gt;</span>) <span class='op'>-&gt;</span> <span class='ident'>postgres</span>::<span class='prelude-ty'>Result</span><span class='op'>&lt;</span>()<span class='op'>&gt;</span>
+                <span class='kw'>where</span> <span class='ident'>S</span>: <span class='ident'>BoundSided</span>, <span class='ident'>T</span>: <span class='ident'>ToSql</span>, <span class='ident'>W</span>: <span class='ident'>Write</span> {
             <span class='kw'>if</span> <span class='kw'>let</span> <span class='prelude-val'>Some</span>(<span class='ident'>bound</span>) <span class='op'>=</span> <span class='ident'>v</span> {
                 <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>inner_buf</span> <span class='op'>=</span> <span class='macro'>vec</span><span class='macro'>!</span>[];
-                <span class='macro'>try</span><span class='macro'>!</span>(<span class='ident'>bound</span>.<span class='ident'>value</span>.<span class='ident'>raw_to_sql</span>(<span class='ident'>ty</span>, <span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>inner_buf</span>));
-                <span class='macro'>try</span><span class='macro'>!</span>(<span class='ident'>buf</span>.<span class='ident'>write_be_u32</span>(<span class='ident'>inner_buf</span>.<span class='ident'>len</span>() <span class='kw'>as</span> <span class='ident'>u32</span>));
+                <span class='macro'>try</span><span class='macro'>!</span>(<span class='ident'>bound</span>.<span class='ident'>value</span>.<span class='ident'>to_sql</span>(<span class='ident'>ty</span>, <span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>inner_buf</span>));
+                <span class='macro'>try</span><span class='macro'>!</span>(<span class='ident'>buf</span>.<span class='ident'>write_u32</span>::<span class='op'>&lt;</span><span class='ident'>BigEndian</span><span class='op'>&gt;</span>(<span class='ident'>inner_buf</span>.<span class='ident'>len</span>() <span class='kw'>as</span> <span class='ident'>u32</span>));
                 <span class='macro'>try</span><span class='macro'>!</span>(<span class='ident'>buf</span>.<span class='ident'>write_all</span>(<span class='kw-2'>&amp;</span><span class='op'>*</span><span class='ident'>inner_buf</span>));
             }
             <span class='prelude-val'>Ok</span>(())
         }
 
-        <span class='kw'>let</span> <span class='ident'>element_type</span> <span class='op'>=</span> <span class='ident'>ty</span>.<span class='ident'>element_type</span>().<span class='ident'>unwrap</span>();
         <span class='macro'>try</span><span class='macro'>!</span>(<span class='ident'>write_value</span>(<span class='kw-2'>&amp;</span><span class='ident'>element_type</span>, <span class='ident'>buf</span>, <span class='self'>self</span>.<span class='ident'>lower</span>()));
         <span class='macro'>try</span><span class='macro'>!</span>(<span class='ident'>write_value</span>(<span class='kw-2'>&amp;</span><span class='ident'>element_type</span>, <span class='ident'>buf</span>, <span class='self'>self</span>.<span class='ident'>upper</span>()));
 
-        <span class='prelude-val'>Ok</span>(())
+        <span class='prelude-val'>Ok</span>(<span class='ident'>IsNull</span>::<span class='ident'>No</span>)
     }
-}
 
-<span class='macro'>to_sql_impl</span><span class='macro'>!</span>(<span class='ident'>i32</span>, <span class='ident'>Type</span>::<span class='ident'>Int4Range</span>);
-<span class='macro'>to_sql_impl</span><span class='macro'>!</span>(<span class='ident'>i64</span>, <span class='ident'>Type</span>::<span class='ident'>Int8Range</span>);
-<span class='macro'>to_sql_impl</span><span class='macro'>!</span>(<span class='ident'>Timespec</span>, <span class='ident'>Type</span>::<span class='ident'>TsRange</span>, <span class='ident'>Type</span>::<span class='ident'>TstzRange</span>);
+    <span class='kw'>fn</span> <span class='ident'>accepts</span>(<span class='ident'>ty</span>: <span class='kw-2'>&amp;</span><span class='ident'>Type</span>) <span class='op'>-&gt;</span> <span class='ident'>bool</span> {
+        <span class='kw'>match</span> <span class='ident'>ty</span>.<span class='ident'>kind</span>() {
+            <span class='kw-2'>&amp;</span><span class='ident'>Kind</span>::<span class='ident'>Range</span>(<span class='kw-2'>ref</span> <span class='ident'>inner</span>) <span class='op'>=&gt;</span> <span class='op'>&lt;</span><span class='ident'>T</span> <span class='kw'>as</span> <span class='ident'>ToSql</span><span class='op'>&gt;</span>::<span class='ident'>accepts</span>(<span class='ident'>inner</span>),
+            _ <span class='op'>=&gt;</span> <span class='boolval'>false</span>,
+        }
+    }
+
+    <span class='macro'>to_sql_checked</span><span class='macro'>!</span>();
+}
 
 <span class='attribute'>#[<span class='ident'>cfg</span>(<span class='ident'>test</span>)]</span>
 <span class='kw'>mod</span> <span class='ident'>test</span> {
@@ -457,11 +367,11 @@
         <span class='kw'>let</span> <span class='ident'>conn</span> <span class='op'>=</span> <span class='ident'>Connection</span>::<span class='ident'>connect</span>(<span class='string'>&quot;postgres://postgres@localhost&quot;</span>, <span class='kw-2'>&amp;</span><span class='ident'>SslMode</span>::<span class='prelude-val'>None</span>).<span class='ident'>unwrap</span>();
         <span class='kw'>for</span> <span class='kw-2'>&amp;</span>(<span class='kw-2'>ref</span> <span class='ident'>val</span>, <span class='kw-2'>ref</span> <span class='ident'>repr</span>) <span class='kw'>in</span> <span class='ident'>checks</span> {
             <span class='kw'>let</span> <span class='ident'>stmt</span> <span class='op'>=</span> <span class='ident'>conn</span>.<span class='ident'>prepare</span>(<span class='kw-2'>&amp;</span><span class='op'>*</span><span class='macro'>format</span><span class='macro'>!</span>(<span class='string'>&quot;SELECT {}::{}&quot;</span>, <span class='op'>*</span><span class='ident'>repr</span>, <span class='ident'>sql_type</span>)).<span class='ident'>unwrap</span>();
-            <span class='kw'>let</span> <span class='ident'>result</span> <span class='op'>=</span> <span class='ident'>stmt</span>.<span class='ident'>query</span>(<span class='kw-2'>&amp;</span>[]).<span class='ident'>unwrap</span>().<span class='ident'>next</span>().<span class='ident'>unwrap</span>().<span class='ident'>get</span>(<span class='number'>0</span>);
+            <span class='kw'>let</span> <span class='ident'>result</span> <span class='op'>=</span> <span class='ident'>stmt</span>.<span class='ident'>query</span>(<span class='kw-2'>&amp;</span>[]).<span class='ident'>unwrap</span>().<span class='ident'>iter</span>().<span class='ident'>next</span>().<span class='ident'>unwrap</span>().<span class='ident'>get</span>(<span class='number'>0</span>);
             <span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>val</span> <span class='op'>==</span> <span class='kw-2'>&amp;</span><span class='ident'>result</span>);
 
             <span class='kw'>let</span> <span class='ident'>stmt</span> <span class='op'>=</span> <span class='ident'>conn</span>.<span class='ident'>prepare</span>(<span class='kw-2'>&amp;</span><span class='op'>*</span><span class='macro'>format</span><span class='macro'>!</span>(<span class='string'>&quot;SELECT $1::{}&quot;</span>, <span class='ident'>sql_type</span>)).<span class='ident'>unwrap</span>();
-            <span class='kw'>let</span> <span class='ident'>result</span> <span class='op'>=</span> <span class='ident'>stmt</span>.<span class='ident'>query</span>(<span class='kw-2'>&amp;</span>[<span class='ident'>val</span>]).<span class='ident'>unwrap</span>().<span class='ident'>next</span>().<span class='ident'>unwrap</span>().<span class='ident'>get</span>(<span class='number'>0</span>);
+            <span class='kw'>let</span> <span class='ident'>result</span> <span class='op'>=</span> <span class='ident'>stmt</span>.<span class='ident'>query</span>(<span class='kw-2'>&amp;</span>[<span class='ident'>val</span>]).<span class='ident'>unwrap</span>().<span class='ident'>iter</span>().<span class='ident'>next</span>().<span class='ident'>unwrap</span>().<span class='ident'>get</span>(<span class='number'>0</span>);
             <span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>val</span> <span class='op'>==</span> <span class='kw-2'>&amp;</span><span class='ident'>result</span>);
         }
     }
