@@ -10,6 +10,8 @@ use std::cmp::Ordering;
 use std::fmt;
 use std::i32;
 use std::i64;
+use std::marker::MarkerTrait;
+use std::marker::PhantomData;
 
 use time::Timespec;
 
@@ -164,7 +166,7 @@ pub enum BoundSide {
 
 /// A trait implemented by phantom types indicating the type of the bound
 #[doc(hidden)]
-pub trait BoundSided {
+pub trait BoundSided: MarkerTrait {
     /// Returns the bound side this type corresponds to
     fn side() -> BoundSide;
 }
@@ -205,7 +207,8 @@ pub struct RangeBound<S: BoundSided, T> {
     /// The value of the bound
     pub value: T,
     /// The type of the bound
-    pub type_: BoundType
+    pub type_: BoundType,
+    _m: PhantomData<*mut S>,
 }
 
 impl<S, T> Copy for RangeBound<S, T> where S: BoundSided, T: Copy {}
@@ -215,6 +218,7 @@ impl<S, T> Clone for RangeBound<S, T> where S: BoundSided, T: Clone {
         RangeBound {
             value: self.value.clone(),
             type_: self.type_.clone(),
+            _m: PhantomData,
         }
     }
 }
@@ -274,7 +278,11 @@ impl<S, T> Ord for RangeBound<S, T> where S: BoundSided, T: Ord {
 impl<S, T> RangeBound<S, T> where S: BoundSided, T: PartialOrd {
     /// Constructs a new range bound
     pub fn new(value: T, type_: BoundType) -> RangeBound<S, T> {
-        RangeBound { value: value, type_: type_ }
+        RangeBound {
+            value: value,
+            type_: type_,
+            _m: PhantomData,
+        }
     }
 
     /// Determines if a value lies within the range specified by this bound.
@@ -288,7 +296,7 @@ impl<S, T> RangeBound<S, T> where S: BoundSided, T: PartialOrd {
     }
 }
 
-struct OptBound<'a, S: BoundSided, T:'a>(Option<&'a RangeBound<S, T>>);
+struct OptBound<'a, S: 'a+BoundSided, T:'a>(Option<&'a RangeBound<S, T>>);
 
 impl<'a, S, T> PartialEq for OptBound<'a, S, T> where S: BoundSided, T: PartialEq {
     fn eq(&self, &OptBound(ref other): &OptBound<'a, S, T>) -> bool {
@@ -463,8 +471,8 @@ impl<T> Range<T> where T: PartialOrd+Normalizable+Clone {
             order(OptBound(self.upper()), OptBound(other.upper()));
 
         let discontiguous = match (u_lower, l_upper) {
-            (Some(&RangeBound { value: ref l, type_: Exclusive }),
-             Some(&RangeBound { value: ref u, type_: Exclusive })) => l >= u,
+            (Some(&RangeBound { value: ref l, type_: Exclusive, .. }),
+             Some(&RangeBound { value: ref u, type_: Exclusive, .. })) => l >= u,
             (Some(&RangeBound { value: ref l, .. }),
              Some(&RangeBound { value: ref u, .. })) => l > u,
             _ => false
