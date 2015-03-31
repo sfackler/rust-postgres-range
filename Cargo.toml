@@ -9,8 +9,8 @@ documentation = "https://sfackler.github.io/doc/postgres_range"
 
 [dependencies]
 time = "0.1"
-postgres = "0.7.1"
-byteorder = "0.2"
+postgres = "0.8"
+byteorder = "0.3"
 
 [dev-dependencies.postgres]
 features = ["time"]

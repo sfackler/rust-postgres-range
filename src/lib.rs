@@ -1,6 +1,5 @@
 //! Types dealing with ranges of values
 #![doc(html_root_url="https://sfackler.github.io/rust-postgres-range/doc")]
-#![feature(io, core)]
 
 #[macro_use(to_sql_checked)]
 extern crate postgres;
