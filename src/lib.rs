@@ -10,7 +10,6 @@ use std::cmp::Ordering;
 use std::fmt;
 use std::i32;
 use std::i64;
-use std::marker::MarkerTrait;
 use std::marker::PhantomData;
 
 use time::Timespec;
@@ -162,7 +161,7 @@ pub enum BoundSide {
 
 /// A trait implemented by phantom types indicating the type of the bound
 #[doc(hidden)]
-pub trait BoundSided: MarkerTrait {
+pub trait BoundSided {
     /// Returns the bound side this type corresponds to
     fn side() -> BoundSide;
 }
