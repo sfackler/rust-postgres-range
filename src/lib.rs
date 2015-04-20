@@ -152,7 +152,7 @@ impl Normalizable for Timespec {
 }
 
 /// The possible sides of a bound
-#[derive(PartialEq, Eq, Copy)]
+#[derive(PartialEq, Eq, Clone, Copy)]
 pub enum BoundSide {
     /// An upper bound
     Upper,
