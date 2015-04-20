@@ -738,7 +738,6 @@
 <span id="696">696</span>
 <span id="697">697</span>
 <span id="698">698</span>
-<span id="699">699</span>
 </pre><pre class='rust '>
 <span class='doccomment'>//! Types dealing with ranges of values</span>
 <span class='attribute'>#<span class='op'>!</span>[<span class='ident'>doc</span>(<span class='ident'>html_root_url</span><span class='op'>=</span><span class='string'>&quot;https://sfackler.github.io/rust-postgres-range/doc&quot;</span>)]</span>
@@ -752,7 +751,6 @@
 <span class='kw'>use</span> <span class='ident'>std</span>::<span class='ident'>fmt</span>;
 <span class='kw'>use</span> <span class='ident'>std</span>::<span class='ident'>i32</span>;
 <span class='kw'>use</span> <span class='ident'>std</span>::<span class='ident'>i64</span>;
-<span class='kw'>use</span> <span class='ident'>std</span>::<span class='ident'>marker</span>::<span class='ident'>MarkerTrait</span>;
 <span class='kw'>use</span> <span class='ident'>std</span>::<span class='ident'>marker</span>::<span class='ident'>PhantomData</span>;
 
 <span class='kw'>use</span> <span class='ident'>time</span>::<span class='ident'>Timespec</span>;
@@ -894,7 +892,7 @@
 }
 
 <span class='doccomment'>/// The possible sides of a bound</span>
-<span class='attribute'>#[<span class='ident'>derive</span>(<span class='ident'>PartialEq</span>, <span class='ident'>Eq</span>, <span class='ident'>Copy</span>)]</span>
+<span class='attribute'>#[<span class='ident'>derive</span>(<span class='ident'>PartialEq</span>, <span class='ident'>Eq</span>, <span class='ident'>Clone</span>, <span class='ident'>Copy</span>)]</span>
 <span class='kw'>pub</span> <span class='kw'>enum</span> <span class='ident'>BoundSide</span> {
     <span class='doccomment'>/// An upper bound</span>
     <span class='ident'>Upper</span>,
@@ -904,7 +902,7 @@
 
 <span class='doccomment'>/// A trait implemented by phantom types indicating the type of the bound</span>
 <span class='attribute'>#[<span class='ident'>doc</span>(<span class='ident'>hidden</span>)]</span>
-<span class='kw'>pub</span> <span class='kw'>trait</span> <span class='ident'>BoundSided</span>: <span class='ident'>MarkerTrait</span> {
+<span class='kw'>pub</span> <span class='kw'>trait</span> <span class='ident'>BoundSided</span> {
     <span class='doccomment'>/// Returns the bound side this type corresponds to</span>
     <span class='kw'>fn</span> <span class='ident'>side</span>() <span class='op'>-&gt;</span> <span class='ident'>BoundSide</span>;
 }

@@ -41,16 +41,16 @@
     </nav>
 
     <section id='main' class="content trait">
-<h1 class='fqn'><span class='in-band'>Trait <a href='index.html'>postgres_range</a>::<wbr><a class='trait' href=''>Normalizable</a><wbr></span><span class='out-of-band'><span id='render-detail'>
+<h1 class='fqn'><span class='in-band'>Trait <a href='index.html'>postgres_range</a>::<wbr><a class='trait' href=''>Normalizable</a></span><span class='out-of-band'><span id='render-detail'>
             <a id="collapse-all" href="#">[-]</a>&nbsp;<a id="expand-all" href="#">[+]</a>
-        </span><a id='src-773' href='../src/postgres_range/lib.rs.html#113-123'>[src]</a></span></h1>
+        </span><a id='src-767' class='srclink' href='../src/postgres_range/lib.rs.html#112-122'>[src]</a></span></h1>
 <pre class='rust trait'>pub trait Normalizable {
     fn <a href='#tymethod.normalize' class='fnname'>normalize</a>&lt;S&gt;(bound: <a class='struct' href='../postgres_range/struct.RangeBound.html' title='postgres_range::RangeBound'>RangeBound</a>&lt;S, Self&gt;) -&gt; <a class='struct' href='../postgres_range/struct.RangeBound.html' title='postgres_range::RangeBound'>RangeBound</a>&lt;S, Self&gt; <span class='where'>where S: BoundSided</span>;
 }</pre><div class='docblock'><p>A trait that normalizes a range bound for a type</p>
 </div>
             <h2 id='required-methods'>Required Methods</h2>
             <div class='methods'>
-        <h3 id='tymethod.normalize' class='method'><a class='stability Unmarked' title='No stability level'></a><code>fn <a href='#tymethod.normalize' class='fnname'>normalize</a>&lt;S&gt;(bound: <a class='struct' href='../postgres_range/struct.RangeBound.html' title='postgres_range::RangeBound'>RangeBound</a>&lt;S, Self&gt;) -&gt; <a class='struct' href='../postgres_range/struct.RangeBound.html' title='postgres_range::RangeBound'>RangeBound</a>&lt;S, Self&gt; <span class='where'>where S: BoundSided</span></code></h3><div class='docblock'><p>Given a range bound, returns the normalized version of that bound. For
+        <h3 id='tymethod.normalize' class='method stab '><code>fn <a href='#tymethod.normalize' class='fnname'>normalize</a>&lt;S&gt;(bound: <a class='struct' href='../postgres_range/struct.RangeBound.html' title='postgres_range::RangeBound'>RangeBound</a>&lt;S, Self&gt;) -&gt; <a class='struct' href='../postgres_range/struct.RangeBound.html' title='postgres_range::RangeBound'>RangeBound</a>&lt;S, Self&gt; <span class='where'>where S: BoundSided</span></code></h3><div class='docblock'><p>Given a range bound, returns the normalized version of that bound. For
 discrete types such as i32, the normalized lower bound is always
 inclusive and the normalized upper bound is always exclusive. Other
 types, such as Timespec, have no normalization process so their
@@ -61,9 +61,9 @@ Postgres type.</p>
 </div></div>
         <h2 id='implementors'>Implementors</h2>
         <ul class='item-list' id='implementors-list'>
-    <li><a class='stability Unmarked' title='No stability level'></a><code>impl <a class='trait' href='../postgres_range/trait.Normalizable.html' title='postgres_range::Normalizable'>Normalizable</a> for <a href='http://doc.rust-lang.org/nightly/std/primitive.i32.html'>i32</a></code></li>
-<li><a class='stability Unmarked' title='No stability level'></a><code>impl <a class='trait' href='../postgres_range/trait.Normalizable.html' title='postgres_range::Normalizable'>Normalizable</a> for <a href='http://doc.rust-lang.org/nightly/std/primitive.i64.html'>i64</a></code></li>
-<li><a class='stability Unmarked' title='No stability level'></a><code>impl <a class='trait' href='../postgres_range/trait.Normalizable.html' title='postgres_range::Normalizable'>Normalizable</a> for <a class='struct' href='http://doc.rust-lang.org/time/time/struct.Timespec.html' title='time::Timespec'>Timespec</a></code></li>
+    <li><code>impl <a class='trait' href='../postgres_range/trait.Normalizable.html' title='postgres_range::Normalizable'>Normalizable</a> for <a href='http://doc.rust-lang.org/nightly/std/primitive.i32.html'>i32</a></code></li>
+<li><code>impl <a class='trait' href='../postgres_range/trait.Normalizable.html' title='postgres_range::Normalizable'>Normalizable</a> for <a href='http://doc.rust-lang.org/nightly/std/primitive.i64.html'>i64</a></code></li>
+<li><code>impl <a class='trait' href='../postgres_range/trait.Normalizable.html' title='postgres_range::Normalizable'>Normalizable</a> for <a class='struct' href='http://doc.rust-lang.org/time/time/struct.Timespec.html' title='time::Timespec'>Timespec</a></code></li>
 </ul><script type="text/javascript" async
                               src="../implementors/postgres_range/trait.Normalizable.js">
                       </script></section>
