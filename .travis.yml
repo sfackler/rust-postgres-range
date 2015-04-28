@@ -1,11 +1,14 @@
 language: rust
+rust:
+- nightly
+- beta
 addons:
   postgresql: 9.4
 script:
 - cargo test
 - cargo doc --no-deps
 after_success:
-- test $TRAVIS_PULL_REQUEST == "false" && test $TRAVIS_BRANCH == "master" && ./.travis/update_docs.sh
+- test $TRAVIS_PULL_REQUEST == "false" && test $TRAVIS_BRANCH == "master" && test $TRAVIS_RUST_VERSION == "nightly" && ./.travis/update_docs.sh
 env:
   global:
     secure: o0Ln3cEpSGR2tBcORZ1CadW+EjUJsn/gGrsLLF1vfWkVoGvS4y40Bpvn4PwzQCMtqqaIwPHrYQ6fMbmXjfjhYN1QHEC7voaGypFtK+YQxRy3kXYcpShzwvkFjBDUfw5HdWD/VX0r9qDJVr8WPc5/vVQedwUbbfdV435JWo3wNeU=
