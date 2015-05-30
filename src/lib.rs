@@ -160,7 +160,6 @@ pub enum BoundSide {
 }
 
 /// A trait implemented by phantom types indicating the type of the bound
-#[doc(hidden)]
 pub trait BoundSided {
     /// Returns the bound side this type corresponds to
     fn side() -> BoundSide;
