@@ -9,7 +9,7 @@ documentation = "https://sfackler.github.io/rust-postgres-range/doc/postgres_ran
 
 [dependencies]
 time = "0.1"
-postgres = "0.8"
+postgres = "0.9"
 byteorder = "0.3"
 
 [dev-dependencies.postgres]

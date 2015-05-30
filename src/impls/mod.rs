@@ -1,6 +1,8 @@
 use std::io::prelude::*;
-use postgres::{self, Type, Kind, ToSql, FromSql};
-use postgres::types::IsNull;
+use std::error;
+use postgres;
+use postgres::types::{Type, Kind, ToSql, FromSql, IsNull, SessionInfo};
+use postgres::error::Error;
 use byteorder::{ReadBytesExt, WriteBytesExt, BigEndian};
 
 use {Range, RangeBound, BoundType, BoundSided, Normalizable};
@@ -12,7 +14,8 @@ const RANGE_LOWER_INCLUSIVE: i8 = 0b0000_0010;
 const RANGE_EMPTY: i8           = 0b0000_0001;
 
 impl<T> FromSql for Range<T> where T: PartialOrd+Normalizable+FromSql {
-    fn from_sql<R: Read>(ty: &Type, rdr: &mut R) -> postgres::Result<Range<T>> {
+    fn from_sql<R: Read>(ty: &Type, rdr: &mut R, info: &SessionInfo)
+                         -> postgres::Result<Range<T>> {
         let element_type = match ty.kind() {
             &Kind::Range(ref ty) => ty,
             _ => panic!("unexpected type {:?}", ty)
@@ -24,7 +27,8 @@ impl<T> FromSql for Range<T> where T: PartialOrd+Normalizable+FromSql {
             return Ok(Range::empty());
         }
 
-        fn make_bound<S, T, R>(ty: &Type, rdr: &mut R, tag: i8, bound_flag: i8, inclusive_flag: i8)
+        fn make_bound<S, T, R>(ty: &Type, rdr: &mut R, info: &SessionInfo,
+                               tag: i8, bound_flag: i8, inclusive_flag: i8)
                                -> postgres::Result<Option<RangeBound<S, T>>>
                 where S: BoundSided, T: PartialOrd+Normalizable+FromSql, R: Read {
             match tag & bound_flag {
@@ -35,9 +39,11 @@ impl<T> FromSql for Range<T> where T: PartialOrd+Normalizable+FromSql {
                     };
                     let len = try!(rdr.read_i32::<BigEndian>()) as u64;
                     let mut limit = rdr.take(len);
-                    let bound = try!(FromSql::from_sql(ty, &mut limit));
+                    let bound = try!(FromSql::from_sql(ty, &mut limit, info));
                     if limit.limit() != 0 {
-                        return Err(postgres::Error::BadResponse);
+                        let err: Box<error::Error+Sync+Send> =
+                            "from_sql call did not consume all data".into();
+                        return Err(Error::Conversion(err));
                     }
                     Ok(Some(RangeBound::new(bound, type_)))
                 }
@@ -45,8 +51,10 @@ impl<T> FromSql for Range<T> where T: PartialOrd+Normalizable+FromSql {
             }
         }
 
-        let lower = try!(make_bound(element_type, rdr, t, RANGE_LOWER_UNBOUNDED, RANGE_LOWER_INCLUSIVE));
-        let upper = try!(make_bound(element_type, rdr, t, RANGE_UPPER_UNBOUNDED, RANGE_UPPER_INCLUSIVE));
+        let lower = try!(make_bound(element_type, rdr, info, t,
+                                    RANGE_LOWER_UNBOUNDED, RANGE_LOWER_INCLUSIVE));
+        let upper = try!(make_bound(element_type, rdr, info, t,
+                                    RANGE_UPPER_UNBOUNDED, RANGE_UPPER_INCLUSIVE));
         Ok(Range::new(lower, upper))
     }
 
@@ -59,7 +67,8 @@ impl<T> FromSql for Range<T> where T: PartialOrd+Normalizable+FromSql {
 }
 
 impl<T> ToSql for Range<T> where T: PartialOrd+Normalizable+ToSql {
-    fn to_sql<W: ?Sized+Write>(&self, ty: &Type, mut buf: &mut W) -> postgres::Result<IsNull> {
+    fn to_sql<W: ?Sized+Write>(&self, ty: &Type, mut buf: &mut W, info: &SessionInfo)
+                               -> postgres::Result<IsNull> {
         let element_type = match ty.kind() {
             &Kind::Range(ref ty) => ty,
             _ => panic!("unexpected type {:?}", ty)
@@ -83,19 +92,20 @@ impl<T> ToSql for Range<T> where T: PartialOrd+Normalizable+ToSql {
 
         try!(buf.write_i8(tag));
 
-        fn write_value<S, T, W: ?Sized>(ty: &Type, mut buf: &mut W, v: Option<&RangeBound<S, T>>) -> postgres::Result<()>
+        fn write_value<S, T, W: ?Sized>(ty: &Type, mut buf: &mut W, info: &SessionInfo,
+                                        v: Option<&RangeBound<S, T>>) -> postgres::Result<()>
                 where S: BoundSided, T: ToSql, W: Write {
             if let Some(bound) = v {
                 let mut inner_buf = vec![];
-                try!(bound.value.to_sql(ty, &mut inner_buf));
+                try!(bound.value.to_sql(ty, &mut inner_buf, info));
                 try!(buf.write_u32::<BigEndian>(inner_buf.len() as u32));
                 try!(buf.write_all(&*inner_buf));
             }
             Ok(())
         }
 
-        try!(write_value(&element_type, buf, self.lower()));
-        try!(write_value(&element_type, buf, self.upper()));
+        try!(write_value(&element_type, buf, info, self.lower()));
+        try!(write_value(&element_type, buf, info, self.upper()));
 
         Ok(IsNull::No)
     }
@@ -114,7 +124,8 @@ impl<T> ToSql for Range<T> where T: PartialOrd+Normalizable+ToSql {
 mod test {
     use std::fmt;
 
-    use postgres::{Connection, FromSql, ToSql, SslMode};
+    use postgres::{Connection, SslMode};
+    use postgres::types::{FromSql, ToSql};
     use time::{self, Timespec};
 
     macro_rules! test_range {
