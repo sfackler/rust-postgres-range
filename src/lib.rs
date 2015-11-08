@@ -1,5 +1,5 @@
 //! Types dealing with ranges of values
-#![doc(html_root_url="https://sfackler.github.io/rust-postgres-range/doc/v0.7.3")]
+#![doc(html_root_url="https://sfackler.github.io/rust-postgres-range/doc/v0.7.4")]
 
 #[macro_use(to_sql_checked)]
 extern crate postgres;
@@ -109,7 +109,7 @@ macro_rules! range {
 mod impls;
 
 /// A trait that normalizes a range bound for a type
-pub trait Normalizable {
+pub trait Normalizable: Sized {
     /// Given a range bound, returns the normalized version of that bound. For
     /// discrete types such as i32, the normalized lower bound is always
     /// inclusive and the normalized upper bound is always exclusive. Other
@@ -150,27 +150,25 @@ impl Normalizable for Timespec {
     }
 }
 
-/// The possible sides of a bound
-#[derive(PartialEq, Eq, Clone, Copy)]
+/// The possible sides of a bound.
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum BoundSide {
-    /// An upper bound
+    /// An upper bound.
     Upper,
-    /// A lower bound
+    /// A lower bound.
     Lower
 }
 
-/// A trait implemented by phantom types indicating the type of the bound
+/// A trait implemented by phantom types indicating the type of the bound.
 pub trait BoundSided {
-    /// Returns the bound side this type corresponds to
+    /// Returns the bound side this type corresponds to.
     fn side() -> BoundSide;
 }
 
 /// A tag type representing an upper bound
-#[allow(missing_copy_implementations)]
 pub enum UpperBound {}
 
 /// A tag type representing a lower bound
-#[allow(missing_copy_implementations)]
 pub enum LowerBound {}
 
 impl BoundSided for UpperBound {
@@ -185,12 +183,12 @@ impl BoundSided for LowerBound {
     }
 }
 
-/// The type of a range bound
-#[derive(PartialEq, Eq, Clone, Copy)]
+/// The type of a range bound.
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum BoundType {
-    /// The bound includes its value
+    /// The bound includes its value.
     Inclusive,
-    /// The bound excludes its value
+    /// The bound excludes its value.
     Exclusive
 }
 
@@ -198,9 +196,9 @@ pub enum BoundType {
 ///
 /// The side is determined by the `S` phantom parameter.
 pub struct RangeBound<S: BoundSided, T> {
-    /// The value of the bound
+    /// The value of the bound.
     pub value: T,
-    /// The type of the bound
+    /// The type of the bound.
     pub type_: BoundType,
     _m: PhantomData<*mut S>,
 }
@@ -219,14 +217,23 @@ impl<S, T> Clone for RangeBound<S, T> where S: BoundSided, T: Clone {
 
 impl<S, T> fmt::Debug for RangeBound<S, T> where S: BoundSided, T: fmt::Debug {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        fmt.debug_struct("RangeBound")
+            .field("value", &self.value)
+            .field("type_", &self.type_)
+            .finish()
+    }
+}
+
+impl<S, T> fmt::Display for RangeBound<S, T> where S: BoundSided, T: fmt::Display {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         let (lower, upper) = match self.type_ {
             Inclusive => ('[', ']'),
             Exclusive => ('(', ')'),
         };
 
         match <S as BoundSided>::side() {
-            Lower => write!(fmt, "{}{:?}", lower, self.value),
-            Upper => write!(fmt, "{:?}{}", self.value, upper),
+            Lower => write!(fmt, "{}{}", lower, self.value),
+            Upper => write!(fmt, "{}{}", self.value, upper),
         }
     }
 }
@@ -290,7 +297,7 @@ impl<S, T> RangeBound<S, T> where S: BoundSided, T: PartialOrd {
     }
 }
 
-struct OptBound<'a, S: 'a+BoundSided, T:'a>(Option<&'a RangeBound<S, T>>);
+struct OptBound<'a, S: 'a + BoundSided, T:'a>(Option<&'a RangeBound<S, T>>);
 
 impl<'a, S, T> PartialEq for OptBound<'a, S, T> where S: BoundSided, T: PartialEq {
     fn eq(&self, &OptBound(ref other): &OptBound<'a, S, T>) -> bool {
@@ -318,30 +325,30 @@ impl<'a, S, T> PartialOrd for OptBound<'a, S, T> where S: BoundSided, T: Partial
 }
 
 /// Represents a range of values.
-#[derive(PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct Range<T> {
     inner: InnerRange<T>,
 }
 
-#[derive(PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 enum InnerRange<T> {
     Empty,
     Normal(Option<RangeBound<LowerBound, T>>,
            Option<RangeBound<UpperBound, T>>)
 }
 
-impl<T> fmt::Debug for Range<T> where T: fmt::Debug {
+impl<T> fmt::Display for Range<T> where T: fmt::Display {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         match self.inner {
             Empty => write!(fmt, "empty"),
             Normal(ref lower, ref upper) => {
                 match *lower {
-                    Some(ref bound) => try!(write!(fmt, "{:?}", bound)),
+                    Some(ref bound) => try!(write!(fmt, "{}", bound)),
                     None => try!(write!(fmt, "(")),
                 }
                 try!(write!(fmt, ","));
                 match *upper {
-                    Some(ref bound) => write!(fmt, "{:?}", bound),
+                    Some(ref bound) => write!(fmt, "{}", bound),
                     None => write!(fmt, ")"),
                 }
             }
@@ -349,7 +356,7 @@ impl<T> fmt::Debug for Range<T> where T: fmt::Debug {
     }
 }
 
-impl<T> Range<T> where T: PartialOrd+Normalizable{
+impl<T> Range<T> where T: PartialOrd + Normalizable {
     /// Creates a new range.
     ///
     /// If a bound is `None`, the range is unbounded in that direction.
@@ -435,7 +442,7 @@ fn order<T>(a: T, b: T) -> (T, T) where T: PartialOrd {
 }
 
 impl<T> Range<T> where T: PartialOrd+Normalizable+Clone {
-    /// Returns the intersection of this range with another
+    /// Returns the intersection of this range with another.
     pub fn intersect(&self, other: &Range<T>) -> Range<T> {
         if self.is_empty() || other.is_empty() {
             return Range::empty();
@@ -449,7 +456,7 @@ impl<T> Range<T> where T: PartialOrd+Normalizable+Clone {
         Range::new(lower.map(|v| v.clone()), upper.map(|v| v.clone()))
     }
 
-    /// Returns the union of this range with another if it is contiguous
+    /// Returns the union of this range with another if it is contiguous.
     pub fn union(&self, other: &Range<T>) -> Option<Range<T>> {
         if self.is_empty() {
             return Some(other.clone());

@@ -1,16 +1,16 @@
 [package]
 name = "postgres_range"
-version = "0.7.3"
+version = "0.7.4"
 authors = ["Steven Fackler <sfackler@gmail.com>"]
 license = "MIT"
 description = "Range support for rust-postgres"
 repository = "https://github.com/sfackler/rust-postgres-range"
-documentation = "https://sfackler.github.io/rust-postgres-range/doc/v0.7.3/postgres_range"
+documentation = "https://sfackler.github.io/rust-postgres-range/doc/v0.7.4/postgres_range"
 
 [dependencies]
 time = "0.1"
 postgres = ">= 0.9, < 0.11"
-byteorder = "0.3"
+byteorder = ">= 0.3, < 0.5"
 
 [dev-dependencies.postgres]
 features = ["time"]
