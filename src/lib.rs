@@ -109,7 +109,7 @@ macro_rules! range {
 mod impls;
 
 /// A trait that normalizes a range bound for a type
-pub trait Normalizable {
+pub trait Normalizable: Sized {
     /// Given a range bound, returns the normalized version of that bound. For
     /// discrete types such as i32, the normalized lower bound is always
     /// inclusive and the normalized upper bound is always exclusive. Other
