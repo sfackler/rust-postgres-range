@@ -1,11 +1,11 @@
 [package]
 name = "postgres_range"
-version = "0.7.4"
+version = "0.8.0"
 authors = ["Steven Fackler <sfackler@gmail.com>"]
 license = "MIT"
 description = "Range support for rust-postgres"
 repository = "https://github.com/sfackler/rust-postgres-range"
-documentation = "https://sfackler.github.io/rust-postgres-range/doc/v0.7.4/postgres_range"
+documentation = "https://sfackler.github.io/rust-postgres-range/doc/v0.8.0/postgres_range"
 
 [dependencies]
 time = "0.1"
