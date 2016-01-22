@@ -200,7 +200,12 @@ pub struct RangeBound<S: BoundSided, T> {
     pub value: T,
     /// The type of the bound.
     pub type_: BoundType,
-    _m: PhantomData<*mut S>,
+    _m: PhantomData<S>,
+}
+
+fn _is_send_sync() {
+    fn is_send_sync<T: Send + Sync>() {}
+    is_send_sync::<RangeBound<LowerBound, i32>>();
 }
 
 impl<S, T> Copy for RangeBound<S, T> where S: BoundSided, T: Copy {}
