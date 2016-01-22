@@ -12,5 +12,5 @@ time = "0.1"
 postgres = "0.11"
 byteorder = ">= 0.3, < 0.5"
 
-[dev-dependencies.postgres]
-features = ["time"]
+[dev-dependencies]
+postgres = { version = "0.11", features = ["time"] }
