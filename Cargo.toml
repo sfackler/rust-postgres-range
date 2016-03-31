@@ -10,7 +10,7 @@ documentation = "https://sfackler.github.io/rust-postgres-range/doc/v0.8.1/postg
 [dependencies]
 time = "0.1"
 postgres = "0.11"
-byteorder = ">= 0.3, < 0.5"
+byteorder = "0.5"
 
 [dev-dependencies]
 postgres = { version = "0.11", features = ["time"] }
