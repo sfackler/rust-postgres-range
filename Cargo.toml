@@ -10,7 +10,11 @@ documentation = "https://sfackler.github.io/rust-postgres-range/doc/v0.8.2/postg
 [dependencies]
 time = "0.1"
 postgres = "0.11"
-byteorder = "0.5"
+postgres-protocol = { git = "https://github.com/sfackler/rust-postgres-protocol" }
 
 [dev-dependencies]
-postgres = { version = "0.11", features = ["time"] }
+postgres = { version = "0.11", features = ["with-time"] }
+
+[replace]
+"postgres:0.11.11" = { git = "https://github.com/sfackler/rust-postgres" }
+"fallible-iterator:0.1.2" = { git = "https://github.com/sfackler/rust-fallible-iterator" }

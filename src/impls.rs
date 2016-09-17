@@ -1,61 +1,24 @@
-use std::io::prelude::*;
-use std::error;
-use postgres;
+use std::error::Error;
 use postgres::types::{Type, Kind, ToSql, FromSql, IsNull, SessionInfo};
-use postgres::error::Error;
-use byteorder::{ReadBytesExt, WriteBytesExt, BigEndian};
+use postgres_protocol::types;
 
 use {Range, RangeBound, BoundType, BoundSided, Normalizable};
 
-const RANGE_UPPER_UNBOUNDED: i8 = 0b0001_0000;
-const RANGE_LOWER_UNBOUNDED: i8 = 0b0000_1000;
-const RANGE_UPPER_INCLUSIVE: i8 = 0b0000_0100;
-const RANGE_LOWER_INCLUSIVE: i8 = 0b0000_0010;
-const RANGE_EMPTY: i8           = 0b0000_0001;
-
 impl<T> FromSql for Range<T> where T: PartialOrd+Normalizable+FromSql {
-    fn from_sql<R: Read>(ty: &Type, rdr: &mut R, info: &SessionInfo)
-                         -> postgres::Result<Range<T>> {
+    fn from_sql(ty: &Type, raw: &[u8], info: &SessionInfo) -> Result<Range<T>, Box<Error + Sync + Send>> {
         let element_type = match ty.kind() {
             &Kind::Range(ref ty) => ty,
             _ => panic!("unexpected type {:?}", ty)
         };
 
-        let t = try!(rdr.read_i8());
-
-        if t & RANGE_EMPTY != 0 {
-            return Ok(Range::empty());
-        }
-
-        fn make_bound<S, T, R>(ty: &Type, rdr: &mut R, info: &SessionInfo,
-                               tag: i8, bound_flag: i8, inclusive_flag: i8)
-                               -> postgres::Result<Option<RangeBound<S, T>>>
-                where S: BoundSided, T: PartialOrd+Normalizable+FromSql, R: Read {
-            match tag & bound_flag {
-                0 => {
-                    let type_ = match tag & inclusive_flag {
-                        0 => BoundType::Exclusive,
-                        _ => BoundType::Inclusive,
-                    };
-                    let len = try!(rdr.read_i32::<BigEndian>()) as u64;
-                    let mut limit = rdr.take(len);
-                    let bound = try!(FromSql::from_sql(ty, &mut limit, info));
-                    if limit.limit() != 0 {
-                        let err: Box<error::Error+Sync+Send> =
-                            "from_sql call did not consume all data".into();
-                        return Err(Error::Conversion(err));
-                    }
-                    Ok(Some(RangeBound::new(bound, type_)))
-                }
-                _ => Ok(None)
+        match try!(types::range_from_sql(raw)) {
+            types::Range::Empty => Ok(Range::empty()),
+            types::Range::Nonempty(lower, upper) => {
+                let lower = try!(bound_from_sql(lower, element_type, info));
+                let upper = try!(bound_from_sql(upper, element_type, info));
+                Ok(Range::new(lower, upper))
             }
         }
-
-        let lower = try!(make_bound(element_type, rdr, info, t,
-                                    RANGE_LOWER_UNBOUNDED, RANGE_LOWER_INCLUSIVE));
-        let upper = try!(make_bound(element_type, rdr, info, t,
-                                    RANGE_UPPER_UNBOUNDED, RANGE_UPPER_INCLUSIVE));
-        Ok(Range::new(lower, upper))
     }
 
     fn accepts(ty: &Type) -> bool {
@@ -66,46 +29,43 @@ impl<T> FromSql for Range<T> where T: PartialOrd+Normalizable+FromSql {
     }
 }
 
+fn bound_from_sql<T, S>(bound: types::RangeBound<Option<&[u8]>>, ty: &Type, info: &SessionInfo) -> Result<Option<RangeBound<S, T>>, Box<Error + Sync + Send>>
+    where T: PartialOrd + Normalizable + FromSql,
+          S: BoundSided
+{
+    match bound {
+        types::RangeBound::Exclusive(value) => {
+            let value = match value {
+                Some(value) => try!(T::from_sql(ty, value, info)),
+                None => try!(T::from_sql_null(ty, info)),
+            };
+            Ok(Some(RangeBound::new(value, BoundType::Exclusive)))
+        },
+        types::RangeBound::Inclusive(value) => {
+            let value = match value {
+                Some(value) => try!(T::from_sql(ty, value, info)),
+                None => try!(T::from_sql_null(ty, info)),
+            };
+            Ok(Some(RangeBound::new(value, BoundType::Inclusive)))
+        },
+        types::RangeBound::Unbounded => Ok(None),
+    }
+}
+
 impl<T> ToSql for Range<T> where T: PartialOrd+Normalizable+ToSql {
-    fn to_sql<W: ?Sized+Write>(&self, ty: &Type, mut buf: &mut W, info: &SessionInfo)
-                               -> postgres::Result<IsNull> {
+    fn to_sql(&self, ty: &Type, mut buf: &mut Vec<u8>, info: &SessionInfo) -> Result<IsNull, Box<Error + Sync + Send>> {
         let element_type = match ty.kind() {
             &Kind::Range(ref ty) => ty,
             _ => panic!("unexpected type {:?}", ty)
         };
 
-        let mut tag = 0;
         if self.is_empty() {
-            tag |= RANGE_EMPTY;
+            types::empty_range_to_sql(buf);
         } else {
-            fn make_tag<S, T>(bound: Option<&RangeBound<S, T>>, unbounded_tag: i8,
-                              inclusive_tag: i8) -> i8 where S: BoundSided {
-                match bound {
-                    None => unbounded_tag,
-                    Some(&RangeBound { type_: BoundType::Inclusive, .. }) => inclusive_tag,
-                    _ => 0
-                }
-            }
-            tag |= make_tag(self.lower(), RANGE_LOWER_UNBOUNDED, RANGE_LOWER_INCLUSIVE);
-            tag |= make_tag(self.upper(), RANGE_UPPER_UNBOUNDED, RANGE_UPPER_INCLUSIVE);
+            try!(types::range_to_sql(|buf| bound_to_sql(self.lower(), element_type, info, buf),
+                                     |buf| bound_to_sql(self.upper(), element_type, info, buf),
+                                     buf));
         }
-
-        try!(buf.write_i8(tag));
-
-        fn write_value<S, T, W: ?Sized>(ty: &Type, mut buf: &mut W, info: &SessionInfo,
-                                        v: Option<&RangeBound<S, T>>) -> postgres::Result<()>
-                where S: BoundSided, T: ToSql, W: Write {
-            if let Some(bound) = v {
-                let mut inner_buf = vec![];
-                try!(bound.value.to_sql(ty, &mut inner_buf, info));
-                try!(buf.write_u32::<BigEndian>(inner_buf.len() as u32));
-                try!(buf.write_all(&*inner_buf));
-            }
-            Ok(())
-        }
-
-        try!(write_value(&element_type, buf, info, self.lower()));
-        try!(write_value(&element_type, buf, info, self.upper()));
 
         Ok(IsNull::No)
     }
@@ -120,11 +80,32 @@ impl<T> ToSql for Range<T> where T: PartialOrd+Normalizable+ToSql {
     to_sql_checked!();
 }
 
+fn bound_to_sql<S, T>(bound: Option<&RangeBound<S, T>>, ty: &Type, info: &SessionInfo, buf: &mut Vec<u8>) -> Result<types::RangeBound<types::IsNull>, Box<Error + Sync + Send>>
+    where S: BoundSided,
+          T: ToSql
+{
+    match bound {
+        Some(bound) => {
+            let null = match try!(bound.value.to_sql(ty, buf, info)) {
+                IsNull::Yes => types::IsNull::Yes,
+                IsNull::No => types::IsNull::No,
+            };
+
+            match bound.type_ {
+                BoundType::Exclusive => Ok(types::RangeBound::Exclusive(null)),
+                BoundType::Inclusive => Ok(types::RangeBound::Inclusive(null)),
+            }
+        }
+        None => Ok(types::RangeBound::Unbounded),
+    }
+
+}
+
 #[cfg(test)]
 mod test {
     use std::fmt;
 
-    use postgres::{Connection, SslMode};
+    use postgres::{Connection, TlsMode};
     use postgres::types::{FromSql, ToSql};
     use time::{self, Timespec};
 
@@ -150,7 +131,7 @@ mod test {
     }
 
     fn test_type<T: PartialEq+FromSql+ToSql, S: fmt::Display>(sql_type: &str, checks: &[(T, S)]) {
-        let conn = Connection::connect("postgres://postgres@localhost", SslMode::None).unwrap();
+        let conn = Connection::connect("postgres://postgres@localhost", TlsMode::None).unwrap();
         for &(ref val, ref repr) in checks {
             let stmt = conn.prepare(&*format!("SELECT {}::{}", *repr, sql_type)).unwrap();
             let result = stmt.query(&[]).unwrap().iter().next().unwrap().get(0);

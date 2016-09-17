@@ -3,8 +3,8 @@
 
 #[macro_use(to_sql_checked)]
 extern crate postgres;
+extern crate postgres_protocol;
 extern crate time;
-extern crate byteorder;
 
 use std::cmp::Ordering;
 use std::fmt;
