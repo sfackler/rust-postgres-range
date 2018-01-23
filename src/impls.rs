@@ -1,11 +1,11 @@
 use std::error::Error;
-use postgres::types::{Type, Kind, ToSql, FromSql, IsNull, SessionInfo};
-use postgres_protocol::types;
+use postgres::types::{Type, Kind, ToSql, FromSql, IsNull};
+use postgres_protocol::{self as protocol, types};
 
 use {Range, RangeBound, BoundType, BoundSided, Normalizable};
 
 impl<T> FromSql for Range<T> where T: PartialOrd+Normalizable+FromSql {
-    fn from_sql(ty: &Type, raw: &[u8], info: &SessionInfo) -> Result<Range<T>, Box<Error + Sync + Send>> {
+    fn from_sql(ty: &Type, raw: &[u8]) -> Result<Range<T>, Box<Error + Sync + Send>> {
         let element_type = match ty.kind() {
             &Kind::Range(ref ty) => ty,
             _ => panic!("unexpected type {:?}", ty)
@@ -14,8 +14,8 @@ impl<T> FromSql for Range<T> where T: PartialOrd+Normalizable+FromSql {
         match try!(types::range_from_sql(raw)) {
             types::Range::Empty => Ok(Range::empty()),
             types::Range::Nonempty(lower, upper) => {
-                let lower = try!(bound_from_sql(lower, element_type, info));
-                let upper = try!(bound_from_sql(upper, element_type, info));
+                let lower = try!(bound_from_sql(lower, element_type));
+                let upper = try!(bound_from_sql(upper, element_type));
                 Ok(Range::new(lower, upper))
             }
         }
@@ -29,22 +29,22 @@ impl<T> FromSql for Range<T> where T: PartialOrd+Normalizable+FromSql {
     }
 }
 
-fn bound_from_sql<T, S>(bound: types::RangeBound<Option<&[u8]>>, ty: &Type, info: &SessionInfo) -> Result<Option<RangeBound<S, T>>, Box<Error + Sync + Send>>
+fn bound_from_sql<T, S>(bound: types::RangeBound<Option<&[u8]>>, ty: &Type) -> Result<Option<RangeBound<S, T>>, Box<Error + Sync + Send>>
     where T: PartialOrd + Normalizable + FromSql,
           S: BoundSided
 {
     match bound {
         types::RangeBound::Exclusive(value) => {
             let value = match value {
-                Some(value) => try!(T::from_sql(ty, value, info)),
-                None => try!(T::from_sql_null(ty, info)),
+                Some(value) => try!(T::from_sql(ty, value)),
+                None => try!(T::from_sql_null(ty)),
             };
             Ok(Some(RangeBound::new(value, BoundType::Exclusive)))
         },
         types::RangeBound::Inclusive(value) => {
             let value = match value {
-                Some(value) => try!(T::from_sql(ty, value, info)),
-                None => try!(T::from_sql_null(ty, info)),
+                Some(value) => try!(T::from_sql(ty, value)),
+                None => try!(T::from_sql_null(ty)),
             };
             Ok(Some(RangeBound::new(value, BoundType::Inclusive)))
         },
@@ -53,7 +53,7 @@ fn bound_from_sql<T, S>(bound: types::RangeBound<Option<&[u8]>>, ty: &Type, info
 }
 
 impl<T> ToSql for Range<T> where T: PartialOrd+Normalizable+ToSql {
-    fn to_sql(&self, ty: &Type, mut buf: &mut Vec<u8>, info: &SessionInfo) -> Result<IsNull, Box<Error + Sync + Send>> {
+    fn to_sql(&self, ty: &Type, buf: &mut Vec<u8>) -> Result<IsNull, Box<Error + Sync + Send>> {
         let element_type = match ty.kind() {
             &Kind::Range(ref ty) => ty,
             _ => panic!("unexpected type {:?}", ty)
@@ -62,8 +62,8 @@ impl<T> ToSql for Range<T> where T: PartialOrd+Normalizable+ToSql {
         if self.is_empty() {
             types::empty_range_to_sql(buf);
         } else {
-            try!(types::range_to_sql(|buf| bound_to_sql(self.lower(), element_type, info, buf),
-                                     |buf| bound_to_sql(self.upper(), element_type, info, buf),
+            try!(types::range_to_sql(|buf| bound_to_sql(self.lower(), element_type, buf),
+                                     |buf| bound_to_sql(self.upper(), element_type, buf),
                                      buf));
         }
 
@@ -80,15 +80,15 @@ impl<T> ToSql for Range<T> where T: PartialOrd+Normalizable+ToSql {
     to_sql_checked!();
 }
 
-fn bound_to_sql<S, T>(bound: Option<&RangeBound<S, T>>, ty: &Type, info: &SessionInfo, buf: &mut Vec<u8>) -> Result<types::RangeBound<types::IsNull>, Box<Error + Sync + Send>>
+fn bound_to_sql<S, T>(bound: Option<&RangeBound<S, T>>, ty: &Type, buf: &mut Vec<u8>) -> Result<types::RangeBound<protocol::IsNull>, Box<Error + Sync + Send>>
     where S: BoundSided,
           T: ToSql
 {
     match bound {
         Some(bound) => {
-            let null = match try!(bound.value.to_sql(ty, buf, info)) {
-                IsNull::Yes => types::IsNull::Yes,
-                IsNull::No => types::IsNull::No,
+            let null = match try!(bound.value.to_sql(ty, buf)) {
+                IsNull::Yes => protocol::IsNull::Yes,
+                IsNull::No => protocol::IsNull::No,
             };
 
             match bound.type_ {
