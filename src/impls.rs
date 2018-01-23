@@ -11,11 +11,11 @@ impl<T> FromSql for Range<T> where T: PartialOrd+Normalizable+FromSql {
             _ => panic!("unexpected type {:?}", ty)
         };
 
-        match try!(types::range_from_sql(raw)) {
+        match types::range_from_sql(raw)? {
             types::Range::Empty => Ok(Range::empty()),
             types::Range::Nonempty(lower, upper) => {
-                let lower = try!(bound_from_sql(lower, element_type));
-                let upper = try!(bound_from_sql(upper, element_type));
+                let lower = bound_from_sql(lower, element_type)?;
+                let upper = bound_from_sql(upper, element_type)?;
                 Ok(Range::new(lower, upper))
             }
         }
@@ -36,15 +36,15 @@ fn bound_from_sql<T, S>(bound: types::RangeBound<Option<&[u8]>>, ty: &Type) -> R
     match bound {
         types::RangeBound::Exclusive(value) => {
             let value = match value {
-                Some(value) => try!(T::from_sql(ty, value)),
-                None => try!(T::from_sql_null(ty)),
+                Some(value) => T::from_sql(ty, value)?,
+                None => T::from_sql_null(ty)?,
             };
             Ok(Some(RangeBound::new(value, BoundType::Exclusive)))
         },
         types::RangeBound::Inclusive(value) => {
             let value = match value {
-                Some(value) => try!(T::from_sql(ty, value)),
-                None => try!(T::from_sql_null(ty)),
+                Some(value) => T::from_sql(ty, value)?,
+                None => T::from_sql_null(ty)?,
             };
             Ok(Some(RangeBound::new(value, BoundType::Inclusive)))
         },
@@ -62,9 +62,9 @@ impl<T> ToSql for Range<T> where T: PartialOrd+Normalizable+ToSql {
         if self.is_empty() {
             types::empty_range_to_sql(buf);
         } else {
-            try!(types::range_to_sql(|buf| bound_to_sql(self.lower(), element_type, buf),
+            types::range_to_sql(|buf| bound_to_sql(self.lower(), element_type, buf),
                                      |buf| bound_to_sql(self.upper(), element_type, buf),
-                                     buf));
+                                     buf)?;
         }
 
         Ok(IsNull::No)
@@ -86,7 +86,7 @@ fn bound_to_sql<S, T>(bound: Option<&RangeBound<S, T>>, ty: &Type, buf: &mut Vec
 {
     match bound {
         Some(bound) => {
-            let null = match try!(bound.value.to_sql(ty, buf)) {
+            let null = match bound.value.to_sql(ty, buf)? {
                 IsNull::Yes => protocol::IsNull::Yes,
                 IsNull::No => protocol::IsNull::No,
             };

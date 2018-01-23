@@ -348,10 +348,10 @@ impl<T> fmt::Display for Range<T> where T: fmt::Display {
             Empty => write!(fmt, "empty"),
             Normal(ref lower, ref upper) => {
                 match *lower {
-                    Some(ref bound) => try!(write!(fmt, "{}", bound)),
-                    None => try!(write!(fmt, "(")),
+                    Some(ref bound) => write!(fmt, "{}", bound)?,
+                    None => write!(fmt, "(")?,
                 }
-                try!(write!(fmt, ","));
+                write!(fmt, ",")?;
                 match *upper {
                     Some(ref bound) => write!(fmt, "{}", bound),
                     None => write!(fmt, ")"),
