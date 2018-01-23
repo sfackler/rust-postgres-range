@@ -1,14 +1,17 @@
 use std::error::Error;
-use postgres::types::{Type, Kind, ToSql, FromSql, IsNull};
+use postgres::types::{FromSql, IsNull, Kind, ToSql, Type};
 use postgres_protocol::{self as protocol, types};
 
-use {Range, RangeBound, BoundType, BoundSided, Normalizable};
+use {BoundSided, BoundType, Normalizable, Range, RangeBound};
 
-impl<T> FromSql for Range<T> where T: PartialOrd+Normalizable+FromSql {
+impl<T> FromSql for Range<T>
+where
+    T: PartialOrd + Normalizable + FromSql,
+{
     fn from_sql(ty: &Type, raw: &[u8]) -> Result<Range<T>, Box<Error + Sync + Send>> {
         let element_type = match ty.kind() {
             &Kind::Range(ref ty) => ty,
-            _ => panic!("unexpected type {:?}", ty)
+            _ => panic!("unexpected type {:?}", ty),
         };
 
         match types::range_from_sql(raw)? {
@@ -30,8 +33,9 @@ impl<T> FromSql for Range<T> where T: PartialOrd+Normalizable+FromSql {
 }
 
 fn bound_from_sql<T, S>(bound: types::RangeBound<Option<&[u8]>>, ty: &Type) -> Result<Option<RangeBound<S, T>>, Box<Error + Sync + Send>>
-    where T: PartialOrd + Normalizable + FromSql,
-          S: BoundSided
+where
+    T: PartialOrd + Normalizable + FromSql,
+    S: BoundSided,
 {
     match bound {
         types::RangeBound::Exclusive(value) => {
@@ -40,31 +44,36 @@ fn bound_from_sql<T, S>(bound: types::RangeBound<Option<&[u8]>>, ty: &Type) -> R
                 None => T::from_sql_null(ty)?,
             };
             Ok(Some(RangeBound::new(value, BoundType::Exclusive)))
-        },
+        }
         types::RangeBound::Inclusive(value) => {
             let value = match value {
                 Some(value) => T::from_sql(ty, value)?,
                 None => T::from_sql_null(ty)?,
             };
             Ok(Some(RangeBound::new(value, BoundType::Inclusive)))
-        },
+        }
         types::RangeBound::Unbounded => Ok(None),
     }
 }
 
-impl<T> ToSql for Range<T> where T: PartialOrd+Normalizable+ToSql {
+impl<T> ToSql for Range<T>
+where
+    T: PartialOrd + Normalizable + ToSql,
+{
     fn to_sql(&self, ty: &Type, buf: &mut Vec<u8>) -> Result<IsNull, Box<Error + Sync + Send>> {
         let element_type = match ty.kind() {
             &Kind::Range(ref ty) => ty,
-            _ => panic!("unexpected type {:?}", ty)
+            _ => panic!("unexpected type {:?}", ty),
         };
 
         if self.is_empty() {
             types::empty_range_to_sql(buf);
         } else {
-            types::range_to_sql(|buf| bound_to_sql(self.lower(), element_type, buf),
-                                     |buf| bound_to_sql(self.upper(), element_type, buf),
-                                     buf)?;
+            types::range_to_sql(
+                |buf| bound_to_sql(self.lower(), element_type, buf),
+                |buf| bound_to_sql(self.upper(), element_type, buf),
+                buf,
+            )?;
         }
 
         Ok(IsNull::No)
@@ -81,8 +90,9 @@ impl<T> ToSql for Range<T> where T: PartialOrd+Normalizable+ToSql {
 }
 
 fn bound_to_sql<S, T>(bound: Option<&RangeBound<S, T>>, ty: &Type, buf: &mut Vec<u8>) -> Result<types::RangeBound<protocol::IsNull>, Box<Error + Sync + Send>>
-    where S: BoundSided,
-          T: ToSql
+where
+    S: BoundSided,
+    T: ToSql,
 {
     match bound {
         Some(bound) => {
@@ -98,7 +108,6 @@ fn bound_to_sql<S, T>(bound: Option<&RangeBound<S, T>>, ty: &Type, buf: &mut Vec
         }
         None => Ok(types::RangeBound::Unbounded),
     }
-
 }
 
 #[cfg(test)]
@@ -130,10 +139,11 @@ mod test {
         })
     }
 
-    fn test_type<T: PartialEq+FromSql+ToSql, S: fmt::Display>(sql_type: &str, checks: &[(T, S)]) {
+    fn test_type<T: PartialEq + FromSql + ToSql, S: fmt::Display>(sql_type: &str, checks: &[(T, S)]) {
         let conn = Connection::connect("postgres://postgres@localhost", TlsMode::None).unwrap();
         for &(ref val, ref repr) in checks {
-            let stmt = conn.prepare(&*format!("SELECT {}::{}", *repr, sql_type)).unwrap();
+            let stmt = conn.prepare(&*format!("SELECT {}::{}", *repr, sql_type))
+                .unwrap();
             let result = stmt.query(&[]).unwrap().iter().next().unwrap().get(0);
             assert!(val == &result);
 
