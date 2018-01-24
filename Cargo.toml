@@ -1,20 +1,16 @@
 [package]
 name = "postgres_range"
-version = "0.8.2"
+version = "0.9.0"
 authors = ["Steven Fackler <sfackler@gmail.com>"]
 license = "MIT"
 description = "Range support for rust-postgres"
 repository = "https://github.com/sfackler/rust-postgres-range"
-documentation = "https://sfackler.github.io/rust-postgres-range/doc/v0.8.2/postgres_range"
+documentation = "https://sfackler.github.io/rust-postgres-range/doc/v0.9.0/postgres_range"
 
 [dependencies]
 time = "0.1"
-postgres = "0.11"
-postgres-protocol = { git = "https://github.com/sfackler/rust-postgres-protocol" }
+postgres = "0.15"
+postgres-protocol = "0.3"
 
 [dev-dependencies]
-postgres = { version = "0.11", features = ["with-time"] }
-
-[replace]
-"postgres:0.11.11" = { git = "https://github.com/sfackler/rust-postgres" }
-"fallible-iterator:0.1.2" = { git = "https://github.com/sfackler/rust-fallible-iterator" }
+postgres = { version = "0.15", features = ["with-time"] }
