@@ -4,7 +4,11 @@
 #[macro_use(to_sql_checked)]
 extern crate postgres;
 extern crate postgres_protocol;
+extern crate postgres_shared;
 extern crate time;
+extern crate chrono;
+use chrono::prelude::*;
+use chrono::DateTime;
 
 use std::cmp::Ordering;
 use std::fmt;
@@ -154,6 +158,16 @@ impl Normalizable for Timespec {
         bound
     }
 }
+
+impl Normalizable for DateTime<Utc> {
+    fn normalize<S>(bound: RangeBound<S, DateTime<Utc>>) -> RangeBound<S, DateTime<Utc>>
+    where
+        S: BoundSided,
+    {
+        bound
+    }
+}
+
 
 /// The possible sides of a bound.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
