@@ -7,8 +7,7 @@ extern crate postgres_protocol;
 extern crate postgres_shared;
 extern crate time;
 extern crate chrono;
-use chrono::prelude::*;
-use chrono::DateTime;
+use chrono::{DateTime, TimeZone};
 
 use std::cmp::Ordering;
 use std::fmt;
@@ -159,8 +158,9 @@ impl Normalizable for Timespec {
     }
 }
 
-impl Normalizable for DateTime<Utc> {
-    fn normalize<S>(bound: RangeBound<S, DateTime<Utc>>) -> RangeBound<S, DateTime<Utc>>
+impl<T> Normalizable for DateTime<T> 
+    where T: TimeZone {
+    fn normalize<S>(bound: RangeBound<S, DateTime<T>>) -> RangeBound<S, DateTime<T>>
     where
         S: BoundSided,
     {
