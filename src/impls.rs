@@ -116,6 +116,7 @@ mod test {
 
     use postgres::{Connection, TlsMode};
     use postgres::types::{FromSql, ToSql};
+    #[cfg(feature = "with-time")]
     use time::{self, Timespec};
 
     macro_rules! test_range {
@@ -163,6 +164,7 @@ mod test {
         test_range!("INT8RANGE", i64, 100i64, "100", 200i64, "200")
     }
 
+    #[cfg(feature = "with-time")]
     fn test_timespec_range_params(sql_type: &str) {
         fn t(time: &str) -> Timespec {
             time::strptime(time, "%Y-%m-%d").unwrap().to_timespec()
@@ -173,11 +175,13 @@ mod test {
     }
 
     #[test]
+    #[cfg(feature = "with-time")]
     fn test_tsrange_params() {
         test_timespec_range_params("TSRANGE");
     }
 
     #[test]
+    #[cfg(feature = "with-time")]
     fn test_tstzrange_params() {
         test_timespec_range_params("TSTZRANGE");
     }
