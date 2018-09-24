@@ -1,5 +1,5 @@
 use std::error::Error;
-use postgres::types::{FromSql, IsNull, Kind, ToSql, Type};
+use postgres_shared::types::{FromSql, IsNull, Kind, ToSql, Type};
 use postgres_protocol::{self as protocol, types};
 
 use {BoundSided, BoundType, Normalizable, Range, RangeBound};

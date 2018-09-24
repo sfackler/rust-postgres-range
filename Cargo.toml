@@ -9,7 +9,6 @@ documentation = "https://sfackler.github.io/rust-postgres-range/doc/v0.9.0/postg
 
 [dependencies]
 time = "0.1"
-postgres = "0.15"
 postgres-protocol = "0.3"
 chrono = "0.4.0"
 postgres-shared = { version = "0.4.0", features = ["with-chrono"] }

@@ -1,14 +1,16 @@
 //! Types dealing with ranges of values
 #![doc(html_root_url = "https://sfackler.github.io/rust-postgres-range/doc/v0.8.2")]
 
-#[macro_use(to_sql_checked)]
-extern crate postgres;
 extern crate postgres_protocol;
+#[macro_use(to_sql_checked)]
 extern crate postgres_shared;
 extern crate time;
 extern crate chrono;
-use chrono::{DateTime, TimeZone};
 
+#[cfg(test)]
+extern crate postgres;
+
+use chrono::{DateTime, TimeZone};
 use std::cmp::Ordering;
 use std::fmt;
 use std::i32;
@@ -158,7 +160,7 @@ impl Normalizable for Timespec {
     }
 }
 
-impl<T> Normalizable for DateTime<T> 
+impl<T> Normalizable for DateTime<T>
     where T: TimeZone {
     fn normalize<S>(bound: RangeBound<S, DateTime<T>>) -> RangeBound<S, DateTime<T>>
     where
