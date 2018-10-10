@@ -176,6 +176,17 @@ impl<T> Normalizable for DateTime<T>
     }
 }
 
+#[cfg(feature = "with-chrono")]
+impl<T> Normalizable for Option<DateTime<T>>
+    where T: TimeZone {
+    fn normalize<S>(bound: RangeBound<S, Option<DateTime<T>>>) -> RangeBound<S, Option<DateTime<T>>>
+    where
+        S: BoundSided,
+    {
+        bound
+    }
+}
+
 
 /// The possible sides of a bound.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
