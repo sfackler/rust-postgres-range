@@ -14,7 +14,7 @@ extern crate chrono;
 extern crate postgres;
 
 #[cfg(feature = "with-chrono")]
-use chrono::{DateTime, TimeZone};
+use chrono::{DateTime, NaiveDateTime, TimeZone};
 use std::cmp::Ordering;
 use std::fmt;
 use std::i32;
@@ -176,6 +176,16 @@ impl<T> Normalizable for DateTime<T>
     }
 }
 
+#[cfg(feature = "with-chrono")]
+impl Normalizable for NaiveDateTime
+{
+    fn normalize<S>(bound: RangeBound<S, NaiveDateTime>) -> RangeBound<S, NaiveDateTime>
+    where
+        S: BoundSided,
+    {
+        bound
+    }
+}
 
 /// The possible sides of a bound.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
