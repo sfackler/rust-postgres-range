@@ -3,15 +3,15 @@ use postgres_types::{FromSql, IsNull, Kind, ToSql, Type};
 use postgres_types::private::BytesMut;
 use postgres_protocol::{self as protocol, types};
 
-use {BoundSided, BoundType, Normalizable, Range, RangeBound};
+use crate::{BoundSided, BoundType, Normalizable, Range, RangeBound};
 
 impl<'a, T> FromSql<'a> for Range<T>
 where
     T: PartialOrd + Normalizable + FromSql<'a>,
 {
     fn from_sql(ty: &Type, raw: &'a [u8]) -> Result<Range<T>, Box<dyn Error + Sync + Send>> {
-        let element_type = match ty.kind() {
-            &Kind::Range(ref ty) => ty,
+        let element_type = match *ty.kind() {
+            Kind::Range(ref ty) => ty,
             _ => panic!("unexpected type {:?}", ty),
         };
 
@@ -26,8 +26,8 @@ where
     }
 
     fn accepts(ty: &Type) -> bool {
-        match ty.kind() {
-            &Kind::Range(ref inner) => <T as FromSql>::accepts(inner),
+        match *ty.kind() {
+            Kind::Range(ref inner) => <T as FromSql>::accepts(inner),
             _ => false,
         }
     }
@@ -62,8 +62,8 @@ where
     T: PartialOrd + Normalizable + ToSql,
 {
     fn to_sql(&self, ty: &Type, buf: &mut BytesMut) -> Result<IsNull, Box<dyn Error + Sync + Send>> {
-        let element_type = match ty.kind() {
-            &Kind::Range(ref ty) => ty,
+        let element_type = match *ty.kind() {
+            Kind::Range(ref ty) => ty,
             _ => panic!("unexpected type {:?}", ty),
         };
 
@@ -81,8 +81,8 @@ where
     }
 
     fn accepts(ty: &Type) -> bool {
-        match ty.kind() {
-            &Kind::Range(ref inner) => <T as ToSql>::accepts(inner),
+        match *ty.kind() {
+            Kind::Range(ref inner) => <T as ToSql>::accepts(inner),
             _ => false,
         }
     }

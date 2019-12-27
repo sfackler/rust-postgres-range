@@ -2,6 +2,7 @@
 name = "postgres_range"
 version = "0.9.1"
 authors = ["Steven Fackler <sfackler@gmail.com>"]
+edition = "2018"
 license = "MIT"
 description = "Range support for rust-postgres"
 repository = "https://github.com/sfackler/rust-postgres-range"
