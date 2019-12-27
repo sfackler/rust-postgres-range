@@ -3,25 +3,19 @@
 
 extern crate postgres_protocol;
 #[macro_use(to_sql_checked)]
-extern crate postgres_shared;
+extern crate postgres_types;
 
-#[cfg(feature = "with-time")]
-extern crate time;
-#[cfg(feature = "with-chrono")]
-extern crate chrono;
+#[cfg(feature = "with-chrono-0_4")]
+mod chrono_04;
 
 #[cfg(test)]
 extern crate postgres;
 
-#[cfg(feature = "with-chrono")]
-use chrono::{DateTime, NaiveDateTime, TimeZone};
 use std::cmp::Ordering;
 use std::fmt;
 use std::i32;
 use std::i64;
 use std::marker::PhantomData;
-#[cfg(feature = "with-time")]
-use time::Timespec;
 
 use BoundSide::{Lower, Upper};
 use BoundType::{Exclusive, Inclusive};
@@ -154,38 +148,6 @@ macro_rules! bounded_normalizable {
 
 bounded_normalizable!(i32);
 bounded_normalizable!(i64);
-
-#[cfg(feature = "with-time")]
-impl Normalizable for Timespec {
-    fn normalize<S>(bound: RangeBound<S, Timespec>) -> RangeBound<S, Timespec>
-    where
-        S: BoundSided,
-    {
-        bound
-    }
-}
-
-#[cfg(feature = "with-chrono")]
-impl<T> Normalizable for DateTime<T>
-    where T: TimeZone {
-    fn normalize<S>(bound: RangeBound<S, DateTime<T>>) -> RangeBound<S, DateTime<T>>
-    where
-        S: BoundSided,
-    {
-        bound
-    }
-}
-
-#[cfg(feature = "with-chrono")]
-impl Normalizable for NaiveDateTime
-{
-    fn normalize<S>(bound: RangeBound<S, NaiveDateTime>) -> RangeBound<S, NaiveDateTime>
-    where
-        S: BoundSided,
-    {
-        bound
-    }
-}
 
 /// The possible sides of a bound.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
