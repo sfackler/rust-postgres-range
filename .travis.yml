@@ -2,9 +2,9 @@ language: rust
 rust:
 - nightly
 - beta
-- 1.26.0
+- 1.40.0
 addons:
   postgresql: 9.4
 script:
 - cargo test
-- cargo test --features "with-time with-chrono"
+- cargo test --features "with-chrono-0_4"
