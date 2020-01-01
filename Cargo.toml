@@ -1,6 +1,6 @@
 [package]
 name = "postgres_range"
-version = "0.9.1"
+version = "0.10.0"
 authors = ["Steven Fackler <sfackler@gmail.com>"]
 edition = "2018"
 license = "MIT"
@@ -17,4 +17,4 @@ postgres-types = "0.1"
 chrono-04 = { version = "0.4", package = "chrono", optional = true }
 
 [dev-dependencies]
-postgres = { version = "0.17" }
+postgres = "0.17"
