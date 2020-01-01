@@ -1,16 +1,17 @@
 use std::error::Error;
-use postgres_shared::types::{FromSql, IsNull, Kind, ToSql, Type};
+use postgres_types::{FromSql, IsNull, Kind, ToSql, Type};
+use postgres_types::private::BytesMut;
 use postgres_protocol::{self as protocol, types};
 
-use {BoundSided, BoundType, Normalizable, Range, RangeBound};
+use crate::{BoundSided, BoundType, Normalizable, Range, RangeBound};
 
-impl<T> FromSql for Range<T>
+impl<'a, T> FromSql<'a> for Range<T>
 where
-    T: PartialOrd + Normalizable + FromSql,
+    T: PartialOrd + Normalizable + FromSql<'a>,
 {
-    fn from_sql(ty: &Type, raw: &[u8]) -> Result<Range<T>, Box<Error + Sync + Send>> {
-        let element_type = match ty.kind() {
-            &Kind::Range(ref ty) => ty,
+    fn from_sql(ty: &Type, raw: &'a [u8]) -> Result<Range<T>, Box<dyn Error + Sync + Send>> {
+        let element_type = match *ty.kind() {
+            Kind::Range(ref ty) => ty,
             _ => panic!("unexpected type {:?}", ty),
         };
 
@@ -25,16 +26,16 @@ where
     }
 
     fn accepts(ty: &Type) -> bool {
-        match ty.kind() {
-            &Kind::Range(ref inner) => <T as FromSql>::accepts(inner),
+        match *ty.kind() {
+            Kind::Range(ref inner) => <T as FromSql>::accepts(inner),
             _ => false,
         }
     }
 }
 
-fn bound_from_sql<T, S>(bound: types::RangeBound<Option<&[u8]>>, ty: &Type) -> Result<Option<RangeBound<S, T>>, Box<Error + Sync + Send>>
+fn bound_from_sql<'a, T, S>(bound: types::RangeBound<Option<&'a [u8]>>, ty: &Type) -> Result<Option<RangeBound<S, T>>, Box<dyn Error + Sync + Send>>
 where
-    T: PartialOrd + Normalizable + FromSql,
+    T: PartialOrd + Normalizable + FromSql<'a>,
     S: BoundSided,
 {
     match bound {
@@ -60,9 +61,9 @@ impl<T> ToSql for Range<T>
 where
     T: PartialOrd + Normalizable + ToSql,
 {
-    fn to_sql(&self, ty: &Type, buf: &mut Vec<u8>) -> Result<IsNull, Box<Error + Sync + Send>> {
-        let element_type = match ty.kind() {
-            &Kind::Range(ref ty) => ty,
+    fn to_sql(&self, ty: &Type, buf: &mut BytesMut) -> Result<IsNull, Box<dyn Error + Sync + Send>> {
+        let element_type = match *ty.kind() {
+            Kind::Range(ref ty) => ty,
             _ => panic!("unexpected type {:?}", ty),
         };
 
@@ -80,8 +81,8 @@ where
     }
 
     fn accepts(ty: &Type) -> bool {
-        match ty.kind() {
-            &Kind::Range(ref inner) => <T as ToSql>::accepts(inner),
+        match *ty.kind() {
+            Kind::Range(ref inner) => <T as ToSql>::accepts(inner),
             _ => false,
         }
     }
@@ -89,7 +90,7 @@ where
     to_sql_checked!();
 }
 
-fn bound_to_sql<S, T>(bound: Option<&RangeBound<S, T>>, ty: &Type, buf: &mut Vec<u8>) -> Result<types::RangeBound<protocol::IsNull>, Box<Error + Sync + Send>>
+fn bound_to_sql<S, T>(bound: Option<&RangeBound<S, T>>, ty: &Type, buf: &mut BytesMut) -> Result<types::RangeBound<protocol::IsNull>, Box<dyn Error + Sync + Send>>
 where
     S: BoundSided,
     T: ToSql,
@@ -114,10 +115,10 @@ where
 mod test {
     use std::fmt;
 
-    use postgres::{Connection, TlsMode};
+    use postgres::{Client, NoTls};
     use postgres::types::{FromSql, ToSql};
-    #[cfg(feature = "with-time")]
-    use time::{self, Timespec};
+    #[cfg(feature = "with-chrono-0_4")]
+    use chrono_04::{TimeZone, Utc, Duration};
 
     macro_rules! test_range {
         ($name:expr, $t:ty, $low:expr, $low_str:expr, $high:expr, $high_str:expr) => ({
@@ -140,16 +141,21 @@ mod test {
         })
     }
 
-    fn test_type<T: PartialEq + FromSql + ToSql, S: fmt::Display>(sql_type: &str, checks: &[(T, S)]) {
-        let conn = Connection::connect("postgres://postgres@localhost", TlsMode::None).unwrap();
+
+    fn test_type<T, S>(sql_type: &str, checks: &[(T, S)])
+    where for<'a>
+        T: Sync + PartialEq + FromSql<'a> + ToSql,
+        S: fmt::Display
+    {
+        let mut conn = Client::connect("postgres://postgres@localhost", NoTls).unwrap();
         for &(ref val, ref repr) in checks {
             let stmt = conn.prepare(&*format!("SELECT {}::{}", *repr, sql_type))
                 .unwrap();
-            let result = stmt.query(&[]).unwrap().iter().next().unwrap().get(0);
+            let result = conn.query(&stmt, &[]).unwrap().iter().next().unwrap().get(0);
             assert!(val == &result);
 
             let stmt = conn.prepare(&*format!("SELECT $1::{}", sql_type)).unwrap();
-            let result = stmt.query(&[val]).unwrap().iter().next().unwrap().get(0);
+            let result = conn.query(&stmt, &[val]).unwrap().iter().next().unwrap().get(0);
             assert!(val == &result);
         }
     }
@@ -164,25 +170,19 @@ mod test {
         test_range!("INT8RANGE", i64, 100i64, "100", 200i64, "200")
     }
 
-    #[cfg(feature = "with-time")]
-    fn test_timespec_range_params(sql_type: &str) {
-        fn t(time: &str) -> Timespec {
-            time::strptime(time, "%Y-%m-%d").unwrap().to_timespec()
-        }
-        let low = "1970-01-01";
-        let high = "1980-01-01";
-        test_range!(sql_type, Timespec, t(low), low, t(high), high);
-    }
-
     #[test]
-    #[cfg(feature = "with-time")]
+    #[cfg(feature = "with-chrono-0_4")]
     fn test_tsrange_params() {
-        test_timespec_range_params("TSRANGE");
+        let low = Utc.timestamp(0, 0);
+        let high = low + Duration::days(10);
+        test_range!("TSRANGE", NaiveDateTime, low.naive_utc(), "1970-01-01", high.naive_utc(), "1970-01-11");
     }
 
     #[test]
-    #[cfg(feature = "with-time")]
+    #[cfg(feature = "with-chrono-0_4")]
     fn test_tstzrange_params() {
-        test_timespec_range_params("TSTZRANGE");
+        let low = Utc.timestamp(0, 0);
+        let high = low + Duration::days(10);
+        test_range!("TSTZRANGE", DateTime<Utc>, low, "1970-01-01", high, "1970-01-11");
     }
 }

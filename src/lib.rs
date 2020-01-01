@@ -1,27 +1,18 @@
 //! Types dealing with ranges of values
 #![doc(html_root_url = "https://sfackler.github.io/rust-postgres-range/doc/v0.9")]
+#![warn(clippy::all, rust_2018_idioms, missing_docs)]
 
-extern crate postgres_protocol;
 #[macro_use(to_sql_checked)]
-extern crate postgres_shared;
+extern crate postgres_types;
 
-#[cfg(feature = "with-time")]
-extern crate time;
-#[cfg(feature = "with-chrono")]
-extern crate chrono;
+#[cfg(feature = "with-chrono-0_4")]
+mod chrono_04;
 
-#[cfg(test)]
-extern crate postgres;
-
-#[cfg(feature = "with-chrono")]
-use chrono::{DateTime, NaiveDateTime, TimeZone};
 use std::cmp::Ordering;
 use std::fmt;
 use std::i32;
 use std::i64;
 use std::marker::PhantomData;
-#[cfg(feature = "with-time")]
-use time::Timespec;
 
 use BoundSide::{Lower, Upper};
 use BoundType::{Exclusive, Inclusive};
@@ -155,38 +146,6 @@ macro_rules! bounded_normalizable {
 bounded_normalizable!(i32);
 bounded_normalizable!(i64);
 
-#[cfg(feature = "with-time")]
-impl Normalizable for Timespec {
-    fn normalize<S>(bound: RangeBound<S, Timespec>) -> RangeBound<S, Timespec>
-    where
-        S: BoundSided,
-    {
-        bound
-    }
-}
-
-#[cfg(feature = "with-chrono")]
-impl<T> Normalizable for DateTime<T>
-    where T: TimeZone {
-    fn normalize<S>(bound: RangeBound<S, DateTime<T>>) -> RangeBound<S, DateTime<T>>
-    where
-        S: BoundSided,
-    {
-        bound
-    }
-}
-
-#[cfg(feature = "with-chrono")]
-impl Normalizable for NaiveDateTime
-{
-    fn normalize<S>(bound: RangeBound<S, NaiveDateTime>) -> RangeBound<S, NaiveDateTime>
-    where
-        S: BoundSided,
-    {
-        bound
-    }
-}
-
 /// The possible sides of a bound.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum BoundSide {
@@ -260,7 +219,7 @@ where
     fn clone(&self) -> RangeBound<S, T> {
         RangeBound {
             value: self.value.clone(),
-            type_: self.type_.clone(),
+            type_: self.type_,
             _m: PhantomData,
         }
     }
@@ -271,7 +230,7 @@ where
     S: BoundSided,
     T: fmt::Debug,
 {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt.debug_struct("RangeBound")
             .field("value", &self.value)
             .field("type_", &self.type_)
@@ -284,7 +243,7 @@ where
     S: BoundSided,
     T: fmt::Display,
 {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         let (lower, upper) = match self.type_ {
             Inclusive => ('[', ']'),
             Exclusive => ('(', ')'),
@@ -306,9 +265,9 @@ where
         self.value == other.value && self.type_ == other.type_
     }
 
-    fn ne(&self, other: &RangeBound<S, T>) -> bool {
+    /*fn ne(&self, other: &RangeBound<S, T>) -> bool {
         self.value != other.value || self.type_ != other.type_
-    }
+    }*/
 }
 
 impl<S, T> Eq for RangeBound<S, T>
@@ -364,8 +323,8 @@ where
     /// Constructs a new range bound
     pub fn new(value: T, type_: BoundType) -> RangeBound<S, T> {
         RangeBound {
-            value: value,
-            type_: type_,
+            value,
+            type_,
             _m: PhantomData,
         }
     }
@@ -381,7 +340,7 @@ where
     }
 }
 
-struct OptBound<'a, S: 'a + BoundSided, T: 'a>(Option<&'a RangeBound<S, T>>);
+struct OptBound<'a, S: BoundSided, T>(Option<&'a RangeBound<S, T>>);
 
 impl<'a, S, T> PartialEq for OptBound<'a, S, T>
 where
@@ -393,10 +352,10 @@ where
         self_ == other
     }
 
-    fn ne(&self, &OptBound(ref other): &OptBound<'a, S, T>) -> bool {
+    /*fn ne(&self, &OptBound(ref other): &OptBound<'a, S, T>) -> bool {
         let &OptBound(ref self_) = self;
         self_ != other
-    }
+    }*/
 }
 
 impl<'a, S, T> PartialOrd for OptBound<'a, S, T>
@@ -433,7 +392,7 @@ impl<T> fmt::Display for Range<T>
 where
     T: fmt::Display,
 {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.inner {
             Empty => write!(fmt, "empty"),
             Normal(ref lower, ref upper) => {
@@ -558,7 +517,7 @@ where
         let (_, OptBound(lower)) = order(OptBound(self.lower()), OptBound(other.lower()));
         let (OptBound(upper), _) = order(OptBound(self.upper()), OptBound(other.upper()));
 
-        Range::new(lower.map(|v| v.clone()), upper.map(|v| v.clone()))
+        Range::new(lower.cloned(), upper.cloned())
     }
 
     /// Returns the union of this range with another if it is contiguous.
@@ -595,8 +554,8 @@ where
             None
         } else {
             Some(Range::new(
-                l_lower.map(|v| v.clone()),
-                u_upper.map(|v| v.clone()),
+                l_lower.cloned(),
+                u_upper.cloned(),
             ))
         }
     }
@@ -758,7 +717,7 @@ mod test {
         assert_eq!(r1, (range!('(',; ')')).intersect(&r1));
 
         let r2 = range!('(' 10i32,; ')');
-        let exp = Range::new(r2.lower().map(|v| v.clone()), r1.upper().map(|v| v.clone()));
+        let exp = Range::new(r2.lower().copied(), r1.upper().copied());
         assert_eq!(exp, r1.intersect(&r2));
         assert_eq!(exp, r2.intersect(&r1));
 
