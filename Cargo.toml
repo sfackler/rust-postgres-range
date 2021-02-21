@@ -1,6 +1,6 @@
 [package]
 name = "postgres_range"
-version = "0.10.0"
+version = "0.11.0"
 authors = ["Steven Fackler <sfackler@gmail.com>"]
 edition = "2018"
 license = "MIT"
@@ -12,8 +12,8 @@ documentation = "https://sfackler.github.io/rust-postgres-range/doc/v0.9.0/postg
 with-chrono-0_4 = ["chrono-04", "postgres-types/with-chrono-0_4"]
 
 [dependencies]
-postgres-protocol = "0.5"
-postgres-types = "0.1"
+postgres-protocol = "0.6"
+postgres-types = "0.2"
 chrono-04 = { version = "0.4", package = "chrono", optional = true }
 
 [dev-dependencies]
