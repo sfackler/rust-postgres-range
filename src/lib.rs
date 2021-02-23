@@ -1,5 +1,5 @@
 //! Types dealing with ranges of values
-#![doc(html_root_url = "https://sfackler.github.io/rust-postgres-range/doc/v0.9")]
+#![doc(html_root_url = "https://sfackler.github.io/rust-postgres-range/doc/v0.11")]
 #![warn(clippy::all, rust_2018_idioms, missing_docs)]
 
 #[macro_use(to_sql_checked)]

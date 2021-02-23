@@ -6,7 +6,6 @@ edition = "2018"
 license = "MIT"
 description = "Range support for rust-postgres"
 repository = "https://github.com/sfackler/rust-postgres-range"
-documentation = "https://sfackler.github.io/rust-postgres-range/doc/v0.9.0/postgres_range"
 
 [features]
 with-chrono-0_4 = ["chrono-04", "postgres-types/with-chrono-0_4"]
@@ -17,4 +16,4 @@ postgres-types = "0.2"
 chrono-04 = { version = "0.4", package = "chrono", optional = true }
 
 [dev-dependencies]
-postgres = "0.17"
+postgres = "0.19"
