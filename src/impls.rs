@@ -152,11 +152,11 @@ mod test {
             let stmt = conn.prepare(&*format!("SELECT {}::{}", *repr, sql_type))
                 .unwrap();
             let result = conn.query(&stmt, &[]).unwrap().iter().next().unwrap().get(0);
-            assert!(val == &result);
+            assert_eq!(val, &result);
 
             let stmt = conn.prepare(&*format!("SELECT $1::{}", sql_type)).unwrap();
             let result = conn.query(&stmt, &[val]).unwrap().iter().next().unwrap().get(0);
-            assert!(val == &result);
+            assert_eq!(val, &result);
         }
     }
 
