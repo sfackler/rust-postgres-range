@@ -173,15 +173,15 @@ mod test {
     #[test]
     #[cfg(feature = "with-chrono-0_4")]
     fn test_tsrange_params() {
-        let low = Utc.timestamp(0, 0);
+        let low = NaiveDateTime::from_timestamp_opt(0, 0).unwrap();
         let high = low + Duration::days(10);
-        test_range!("TSRANGE", NaiveDateTime, low.naive_utc(), "1970-01-01", high.naive_utc(), "1970-01-11");
+        test_range!("TSRANGE", NaiveDateTime, low, "1970-01-01", high, "1970-01-11");
     }
 
     #[test]
     #[cfg(feature = "with-chrono-0_4")]
     fn test_tstzrange_params() {
-        let low = Utc.timestamp(0, 0);
+        let low = Utc.timestamp_opt(0, 0).unwrap();
         let high = low + Duration::days(10);
         test_range!("TSTZRANGE", DateTime<Utc>, low, "1970-01-01", high, "1970-01-11");
     }
