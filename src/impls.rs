@@ -188,4 +188,14 @@ mod test {
         let high = low + Duration::days(10);
         test_range!("TSTZRANGE", DateTime<_>, low, "2014-07-08T09:10:11Z", high, "2014-07-18T09:10:11Z");
     }
+
+
+    #[test]
+    #[cfg(feature = "with-chrono-0_4")]
+    #[ignore = "Exclusive starts will be converted to next-day + inclusive"]
+    fn test_daterange_params() {
+        let low = NaiveDate::from_ymd_opt(2015, 6, 4).unwrap();
+        let high = low + Duration::days(10);
+        test_range!("DATERANGE", NaiveDate, low, "2015-06-04", high, "2015-06-14");
+    }
 }
