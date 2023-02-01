@@ -1,4 +1,4 @@
-use chrono_04::{DateTime, NaiveDateTime, TimeZone, NaiveDate, NaiveTime};
+use chrono_04::{DateTime, NaiveDateTime, TimeZone, NaiveDate};
 
 use crate::{Normalizable, RangeBound, BoundSided};
 
@@ -26,16 +26,6 @@ impl Normalizable for NaiveDateTime
 impl Normalizable for NaiveDate
 {
     fn normalize<S>(bound: RangeBound<S, NaiveDate>) -> RangeBound<S, NaiveDate>
-    where
-        S: BoundSided,
-    {
-        bound
-    }
-}
-
-impl Normalizable for NaiveTime
-{
-    fn normalize<S>(bound: RangeBound<S, NaiveTime>) -> RangeBound<S, NaiveTime>
     where
         S: BoundSided,
     {
