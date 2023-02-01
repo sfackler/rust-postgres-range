@@ -118,7 +118,7 @@ mod test {
     use postgres::{Client, NoTls};
     use postgres::types::{FromSql, ToSql};
     #[cfg(feature = "with-chrono-0_4")]
-    use chrono_04::{TimeZone, Utc, Duration};
+    use chrono_04::{NaiveDate, NaiveTime, NaiveDateTime, TimeZone, Utc, Duration};
 
     macro_rules! test_range {
         ($name:expr, $t:ty, $low:expr, $low_str:expr, $high:expr, $high_str:expr) => ({
@@ -173,16 +173,19 @@ mod test {
     #[test]
     #[cfg(feature = "with-chrono-0_4")]
     fn test_tsrange_params() {
-        let low = NaiveDateTime::from_timestamp_opt(0, 0).unwrap();
+        let d = NaiveDate::from_ymd_opt(2015, 6, 3).unwrap();
+        let t = NaiveTime::from_hms_milli_opt(12, 34, 56, 789).unwrap();
+
+        let low = NaiveDateTime::new(d, t);
         let high = low + Duration::days(10);
-        test_range!("TSRANGE", NaiveDateTime, low, "1970-01-01", high, "1970-01-11");
+        test_range!("TSRANGE", NaiveDateTime, low, "2015-06-03T12:34:56.789", high, "2015-06-13T12:34:56.789");
     }
 
     #[test]
     #[cfg(feature = "with-chrono-0_4")]
     fn test_tstzrange_params() {
-        let low = Utc.timestamp_opt(0, 0).unwrap();
+        let low = Utc.with_ymd_and_hms(2014, 7, 8, 9, 10, 11).unwrap();
         let high = low + Duration::days(10);
-        test_range!("TSTZRANGE", DateTime<Utc>, low, "1970-01-01", high, "1970-01-11");
+        test_range!("TSTZRANGE", DateTime<_>, low, "2014-07-08T09:10:11Z", high, "2014-07-18T09:10:11Z");
     }
 }
