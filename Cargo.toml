@@ -9,11 +9,13 @@ repository = "https://github.com/sfackler/rust-postgres-range"
 
 [features]
 with-chrono-0_4 = ["chrono-04", "postgres-types/with-chrono-0_4"]
+with-rust_decimal-1 = ["rust_decimal-1"]
 
 [dependencies]
 postgres-protocol = "0.6"
 postgres-types = "0.2"
 chrono-04 = { version = "0.4", package = "chrono", optional = true, default-features = false }
+rust_decimal-1 = { version = "1.32.0", package = "rust_decimal", optional = true, default-features = false, features = ["db-tokio-postgres"] }
 
 [dev-dependencies]
 postgres = "0.19"
