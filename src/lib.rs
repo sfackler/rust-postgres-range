@@ -8,6 +8,9 @@ extern crate postgres_types;
 #[cfg(feature = "with-chrono-0_4")]
 mod chrono_04;
 
+#[cfg(feature = "with-rust_decimal-1")]
+mod rust_decimal_1;
+
 use std::cmp::Ordering;
 use std::fmt;
 use std::i32;
@@ -54,56 +57,60 @@ use InnerRange::{Empty, Normal};
 /// }
 #[macro_export]
 macro_rules! range {
-    (empty) => ($crate::Range::empty());
-    ('(',; ')') => ($crate::Range::new(None, None));
-    ('(', $h:expr; ')') => (
-        $crate::Range::new(None,
-            Some($crate::RangeBound::new($h,
-                $crate::BoundType::Exclusive)))
-    );
-    ('(', $h:expr; ']') => (
-        $crate::Range::new(None,
-            Some($crate::RangeBound::new($h,
-                $crate::BoundType::Inclusive)))
-    );
-    ('(' $l:expr,; ')') => (
+    (empty) => {
+        $crate::Range::empty()
+    };
+    ('(',; ')') => {
+        $crate::Range::new(None, None)
+    };
+    ('(', $h:expr; ')') => {
         $crate::Range::new(
-            Some($crate::RangeBound::new($l,
-                $crate::BoundType::Exclusive)), None)
-    );
-    ('[' $l:expr,; ')') => (
+            None,
+            Some($crate::RangeBound::new($h, $crate::BoundType::Exclusive)),
+        )
+    };
+    ('(', $h:expr; ']') => {
         $crate::Range::new(
-            Some($crate::RangeBound::new($l,
-                $crate::BoundType::Inclusive)), None)
-    );
-    ('(' $l:expr, $h:expr; ')') => (
+            None,
+            Some($crate::RangeBound::new($h, $crate::BoundType::Inclusive)),
+        )
+    };
+    ('(' $l:expr,; ')') => {
         $crate::Range::new(
-            Some($crate::RangeBound::new($l,
-                $crate::BoundType::Exclusive)),
-            Some($crate::RangeBound::new($h,
-                $crate::BoundType::Exclusive)))
-    );
-    ('(' $l:expr, $h:expr; ']') => (
+            Some($crate::RangeBound::new($l, $crate::BoundType::Exclusive)),
+            None,
+        )
+    };
+    ('[' $l:expr,; ')') => {
         $crate::Range::new(
-            Some($crate::RangeBound::new($l,
-                $crate::BoundType::Exclusive)),
-            Some($crate::RangeBound::new($h,
-                $crate::BoundType::Inclusive)))
-    );
-    ('[' $l:expr, $h:expr; ')') => (
+            Some($crate::RangeBound::new($l, $crate::BoundType::Inclusive)),
+            None,
+        )
+    };
+    ('(' $l:expr, $h:expr; ')') => {
         $crate::Range::new(
-            Some($crate::RangeBound::new($l,
-                $crate::BoundType::Inclusive)),
-            Some($crate::RangeBound::new($h,
-                $crate::BoundType::Exclusive)))
-    );
-    ('[' $l:expr, $h:expr; ']') => (
+            Some($crate::RangeBound::new($l, $crate::BoundType::Exclusive)),
+            Some($crate::RangeBound::new($h, $crate::BoundType::Exclusive)),
+        )
+    };
+    ('(' $l:expr, $h:expr; ']') => {
         $crate::Range::new(
-            Some($crate::RangeBound::new($l,
-                $crate::BoundType::Inclusive)),
-            Some($crate::RangeBound::new($h,
-                $crate::BoundType::Inclusive)))
-    )
+            Some($crate::RangeBound::new($l, $crate::BoundType::Exclusive)),
+            Some($crate::RangeBound::new($h, $crate::BoundType::Inclusive)),
+        )
+    };
+    ('[' $l:expr, $h:expr; ')') => {
+        $crate::Range::new(
+            Some($crate::RangeBound::new($l, $crate::BoundType::Inclusive)),
+            Some($crate::RangeBound::new($h, $crate::BoundType::Exclusive)),
+        )
+    };
+    ('[' $l:expr, $h:expr; ']') => {
+        $crate::Range::new(
+            Some($crate::RangeBound::new($l, $crate::BoundType::Inclusive)),
+            Some($crate::RangeBound::new($h, $crate::BoundType::Inclusive)),
+        )
+    };
 }
 
 mod impls;
@@ -124,9 +131,12 @@ pub trait Normalizable: Sized {
 }
 
 macro_rules! bounded_normalizable {
-    ($t:ident) => (
+    ($t:ident) => {
         impl Normalizable for $t {
-            fn normalize<S>(bound: RangeBound<S, $t>) -> RangeBound<S, $t> where S: BoundSided {
+            fn normalize<S>(bound: RangeBound<S, $t>) -> RangeBound<S, $t>
+            where
+                S: BoundSided,
+            {
                 match (<S as BoundSided>::side(), bound.type_) {
                     (Upper, Inclusive) => {
                         assert!(bound.value != $t::MAX);
@@ -136,11 +146,11 @@ macro_rules! bounded_normalizable {
                         assert!(bound.value != $t::MAX);
                         RangeBound::new(bound.value + 1, Inclusive)
                     }
-                    _ => bound
+                    _ => bound,
                 }
             }
         }
-    )
+    };
 }
 
 bounded_normalizable!(i32);
@@ -289,8 +299,10 @@ where
             other.type_,
             self.value.partial_cmp(&other.value),
         ) {
-            (Upper, Exclusive, Inclusive, Some(Ordering::Equal)) | (Lower, Inclusive, Exclusive, Some(Ordering::Equal)) => Some(Ordering::Less),
-            (Upper, Inclusive, Exclusive, Some(Ordering::Equal)) | (Lower, Exclusive, Inclusive, Some(Ordering::Equal)) => Some(Ordering::Greater),
+            (Upper, Exclusive, Inclusive, Some(Ordering::Equal))
+            | (Lower, Inclusive, Exclusive, Some(Ordering::Equal)) => Some(Ordering::Less),
+            (Upper, Inclusive, Exclusive, Some(Ordering::Equal))
+            | (Lower, Exclusive, Inclusive, Some(Ordering::Equal)) => Some(Ordering::Greater),
             (_, _, _, cmp) => cmp,
         }
     }
@@ -308,8 +320,10 @@ where
             other.type_,
             self.value.cmp(&other.value),
         ) {
-            (Upper, Exclusive, Inclusive, Ordering::Equal) | (Lower, Inclusive, Exclusive, Ordering::Equal) => Ordering::Less,
-            (Upper, Inclusive, Exclusive, Ordering::Equal) | (Lower, Exclusive, Inclusive, Ordering::Equal) => Ordering::Greater,
+            (Upper, Exclusive, Inclusive, Ordering::Equal)
+            | (Lower, Inclusive, Exclusive, Ordering::Equal) => Ordering::Less,
+            (Upper, Inclusive, Exclusive, Ordering::Equal)
+            | (Lower, Exclusive, Inclusive, Ordering::Equal) => Ordering::Greater,
             (_, _, _, ord) => ord,
         }
     }
@@ -417,7 +431,10 @@ where
     /// Creates a new range.
     ///
     /// If a bound is `None`, the range is unbounded in that direction.
-    pub fn new(lower: Option<RangeBound<LowerBound, T>>, upper: Option<RangeBound<UpperBound, T>>) -> Range<T> {
+    pub fn new(
+        lower: Option<RangeBound<LowerBound, T>>,
+        upper: Option<RangeBound<UpperBound, T>>,
+    ) -> Range<T> {
         let lower = lower.map(Normalizable::normalize);
         let upper = upper.map(Normalizable::normalize);
 
@@ -470,11 +487,8 @@ where
         match self.inner {
             Empty => false,
             Normal(ref lower, ref upper) => {
-                lower.as_ref().map_or(true, |b| {
-                    b.in_bounds(value)
-                }) && upper.as_ref().map_or(true, |b| {
-                    b.in_bounds(value)
-                })
+                lower.as_ref().map_or(true, |b| b.in_bounds(value))
+                    && upper.as_ref().map_or(true, |b| b.in_bounds(value))
             }
         }
     }
@@ -489,7 +503,8 @@ where
             return false;
         }
 
-        OptBound(self.lower()) <= OptBound(other.lower()) && OptBound(self.upper()) >= OptBound(other.upper())
+        OptBound(self.lower()) <= OptBound(other.lower())
+            && OptBound(self.upper()) >= OptBound(other.upper())
     }
 }
 
@@ -530,8 +545,10 @@ where
             return Some(self.clone());
         }
 
-        let (OptBound(l_lower), OptBound(u_lower)) = order(OptBound(self.lower()), OptBound(other.lower()));
-        let (OptBound(l_upper), OptBound(u_upper)) = order(OptBound(self.upper()), OptBound(other.upper()));
+        let (OptBound(l_lower), OptBound(u_lower)) =
+            order(OptBound(self.lower()), OptBound(other.lower()));
+        let (OptBound(l_upper), OptBound(u_upper)) =
+            order(OptBound(self.upper()), OptBound(other.upper()));
 
         let discontiguous = match (u_lower, l_upper) {
             (
@@ -546,17 +563,16 @@ where
                     ..
                 }),
             ) => l >= u,
-            (Some(&RangeBound { value: ref l, .. }), Some(&RangeBound { value: ref u, .. })) => l > u,
+            (Some(&RangeBound { value: ref l, .. }), Some(&RangeBound { value: ref u, .. })) => {
+                l > u
+            }
             _ => false,
         };
 
         if discontiguous {
             None
         } else {
-            Some(Range::new(
-                l_lower.cloned(),
-                u_upper.cloned(),
-            ))
+            Some(Range::new(l_lower.cloned(), u_upper.cloned()))
         }
     }
 }
@@ -565,8 +581,8 @@ where
 mod test {
     use std::i32;
 
-    use super::{BoundType, LowerBound, Normalizable, Range, RangeBound, UpperBound};
     use super::BoundType::{Exclusive, Inclusive};
+    use super::{BoundType, LowerBound, Normalizable, Range, RangeBound, UpperBound};
 
     #[test]
     fn test_range_bound_lower_lt() {

@@ -1,7 +1,7 @@
-use std::error::Error;
-use postgres_types::{FromSql, IsNull, Kind, ToSql, Type};
-use postgres_types::private::BytesMut;
 use postgres_protocol::{self as protocol, types};
+use postgres_types::private::BytesMut;
+use postgres_types::{FromSql, IsNull, Kind, ToSql, Type};
+use std::error::Error;
 
 use crate::{BoundSided, BoundType, Normalizable, Range, RangeBound};
 
@@ -33,7 +33,10 @@ where
     }
 }
 
-fn bound_from_sql<'a, T, S>(bound: types::RangeBound<Option<&'a [u8]>>, ty: &Type) -> Result<Option<RangeBound<S, T>>, Box<dyn Error + Sync + Send>>
+fn bound_from_sql<'a, T, S>(
+    bound: types::RangeBound<Option<&'a [u8]>>,
+    ty: &Type,
+) -> Result<Option<RangeBound<S, T>>, Box<dyn Error + Sync + Send>>
 where
     T: PartialOrd + Normalizable + FromSql<'a>,
     S: BoundSided,
@@ -61,7 +64,11 @@ impl<T> ToSql for Range<T>
 where
     T: PartialOrd + Normalizable + ToSql,
 {
-    fn to_sql(&self, ty: &Type, buf: &mut BytesMut) -> Result<IsNull, Box<dyn Error + Sync + Send>> {
+    fn to_sql(
+        &self,
+        ty: &Type,
+        buf: &mut BytesMut,
+    ) -> Result<IsNull, Box<dyn Error + Sync + Send>> {
         let element_type = match *ty.kind() {
             Kind::Range(ref ty) => ty,
             _ => panic!("unexpected type {:?}", ty),
@@ -90,7 +97,11 @@ where
     to_sql_checked!();
 }
 
-fn bound_to_sql<S, T>(bound: Option<&RangeBound<S, T>>, ty: &Type, buf: &mut BytesMut) -> Result<types::RangeBound<protocol::IsNull>, Box<dyn Error + Sync + Send>>
+fn bound_to_sql<S, T>(
+    bound: Option<&RangeBound<S, T>>,
+    ty: &Type,
+    buf: &mut BytesMut,
+) -> Result<types::RangeBound<protocol::IsNull>, Box<dyn Error + Sync + Send>>
 where
     S: BoundSided,
     T: ToSql,
@@ -115,10 +126,12 @@ where
 mod test {
     use std::fmt;
 
-    use postgres::{Client, NoTls};
-    use postgres::types::{FromSql, ToSql};
     #[cfg(feature = "with-chrono-0_4")]
-    use chrono_04::{TimeZone, Utc, Duration};
+    use chrono_04::{Duration, TimeZone, Utc};
+    use postgres::types::{FromSql, ToSql};
+    use postgres::{Client, NoTls};
+    #[cfg(feature = "with-rust_decimal-1")]
+    use rust_decimal_1::Decimal;
 
     macro_rules! test_range {
         ($name:expr, $t:ty, $low:expr, $low_str:expr, $high:expr, $high_str:expr) => ({
@@ -141,21 +154,33 @@ mod test {
         })
     }
 
-
     fn test_type<T, S>(sql_type: &str, checks: &[(T, S)])
-    where for<'a>
-        T: Sync + PartialEq + FromSql<'a> + ToSql,
-        S: fmt::Display
+    where
+        for<'a> T: Sync + PartialEq + FromSql<'a> + ToSql,
+        S: fmt::Display,
     {
         let mut conn = Client::connect("postgres://postgres@localhost", NoTls).unwrap();
         for &(ref val, ref repr) in checks {
-            let stmt = conn.prepare(&*format!("SELECT {}::{}", *repr, sql_type))
+            let stmt = conn
+                .prepare(&*format!("SELECT {}::{}", *repr, sql_type))
                 .unwrap();
-            let result = conn.query(&stmt, &[]).unwrap().iter().next().unwrap().get(0);
+            let result = conn
+                .query(&stmt, &[])
+                .unwrap()
+                .iter()
+                .next()
+                .unwrap()
+                .get(0);
             assert!(val == &result);
 
             let stmt = conn.prepare(&*format!("SELECT $1::{}", sql_type)).unwrap();
-            let result = conn.query(&stmt, &[val]).unwrap().iter().next().unwrap().get(0);
+            let result = conn
+                .query(&stmt, &[val])
+                .unwrap()
+                .iter()
+                .next()
+                .unwrap()
+                .get(0);
             assert!(val == &result);
         }
     }
@@ -171,18 +196,40 @@ mod test {
     }
 
     #[test]
+    #[cfg(feature = "with-rust_decimal-1")]
+    fn test_numrange_params() {
+        let low = Decimal::new(202, 2);
+        let high = Decimal::new(202, 1);
+        test_range!("NUMRANGE", Decimal, low, "2.02", high, "20.2");
+    }
+
+    #[test]
     #[cfg(feature = "with-chrono-0_4")]
     fn test_tsrange_params() {
-        let low = Utc.timestamp(0, 0);
+        let low = Utc.timestamp_opt(0, 0).unwrap();
         let high = low + Duration::days(10);
-        test_range!("TSRANGE", NaiveDateTime, low.naive_utc(), "1970-01-01", high.naive_utc(), "1970-01-11");
+        test_range!(
+            "TSRANGE",
+            NaiveDateTime,
+            low.naive_utc(),
+            "1970-01-01",
+            high.naive_utc(),
+            "1970-01-11"
+        );
     }
 
     #[test]
     #[cfg(feature = "with-chrono-0_4")]
     fn test_tstzrange_params() {
-        let low = Utc.timestamp(0, 0);
+        let low = Utc.timestamp_opt(0, 0).unwrap();
         let high = low + Duration::days(10);
-        test_range!("TSTZRANGE", DateTime<Utc>, low, "1970-01-01", high, "1970-01-11");
+        test_range!(
+            "TSTZRANGE",
+            DateTime<Utc>,
+            low,
+            "1970-01-01",
+            high,
+            "1970-01-11"
+        );
     }
 }
