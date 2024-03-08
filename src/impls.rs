@@ -144,7 +144,7 @@ mod test {
 
     fn test_type<T, S>(sql_type: &str, checks: &[(T, S)])
     where for<'a>
-        T: Sync + PartialEq + FromSql<'a> + ToSql,
+        T: Sync + PartialEq + FromSql<'a> + ToSql + fmt::Debug,
         S: fmt::Display
     {
         let mut conn = Client::connect("postgres://postgres@localhost", NoTls).unwrap();
@@ -152,11 +152,11 @@ mod test {
             let stmt = conn.prepare(&*format!("SELECT {}::{}", *repr, sql_type))
                 .unwrap();
             let result = conn.query(&stmt, &[]).unwrap().iter().next().unwrap().get(0);
-            assert_eq!(val, &result);
+            assert_eq!(val, &result, "'SELECT {repr}::{sql_type}'");
 
             let stmt = conn.prepare(&*format!("SELECT $1::{}", sql_type)).unwrap();
             let result = conn.query(&stmt, &[val]).unwrap().iter().next().unwrap().get(0);
-            assert_eq!(val, &result);
+            assert_eq!(val, &result, "'SELECT $1::{sql_type}'");
         }
     }
 
@@ -192,7 +192,6 @@ mod test {
 
     #[test]
     #[cfg(feature = "with-chrono-0_4")]
-    #[ignore = "Exclusive starts will be converted to next-day + inclusive"]
     fn test_daterange_params() {
         let low = NaiveDate::from_ymd_opt(2015, 6, 4).unwrap();
         let high = low + Duration::days(10);

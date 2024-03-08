@@ -22,13 +22,4 @@ impl Normalizable for NaiveDateTime
     }
 }
 
-
-impl Normalizable for NaiveDate
-{
-    fn normalize<S>(bound: RangeBound<S, NaiveDate>) -> RangeBound<S, NaiveDate>
-    where
-        S: BoundSided,
-    {
-        bound
-    }
-}
+bounded_normalizable!(NaiveDate, ::chrono_04::Duration::days(1));
