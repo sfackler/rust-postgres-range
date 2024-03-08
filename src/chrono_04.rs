@@ -1,4 +1,4 @@
-use chrono_04::{DateTime, NaiveDateTime, TimeZone};
+use chrono_04::{DateTime, NaiveDateTime, TimeZone, NaiveDate};
 
 use crate::{Normalizable, RangeBound, BoundSided};
 
@@ -21,3 +21,5 @@ impl Normalizable for NaiveDateTime
         bound
     }
 }
+
+bounded_normalizable!(NaiveDate, ::chrono_04::Duration::days(1));

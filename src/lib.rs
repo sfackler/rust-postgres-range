@@ -5,9 +5,6 @@
 #[macro_use(to_sql_checked)]
 extern crate postgres_types;
 
-#[cfg(feature = "with-chrono-0_4")]
-mod chrono_04;
-
 use std::cmp::Ordering;
 use std::fmt;
 use std::i32;
@@ -106,8 +103,6 @@ macro_rules! range {
     )
 }
 
-mod impls;
-
 /// A trait that normalizes a range bound for a type
 pub trait Normalizable: Sized {
     /// Given a range bound, returns the normalized version of that bound. For
@@ -124,17 +119,19 @@ pub trait Normalizable: Sized {
 }
 
 macro_rules! bounded_normalizable {
-    ($t:ident) => (
+    ($t:ident, $delta:expr) => (
         impl Normalizable for $t {
             fn normalize<S>(bound: RangeBound<S, $t>) -> RangeBound<S, $t> where S: BoundSided {
+                use $crate::{BoundSide::*, BoundType::*};
+
                 match (<S as BoundSided>::side(), bound.type_) {
                     (Upper, Inclusive) => {
                         assert!(bound.value != $t::MAX);
-                        RangeBound::new(bound.value + 1, Exclusive)
+                        RangeBound::new(bound.value + ($delta), Exclusive)
                     }
                     (Lower, Exclusive) => {
                         assert!(bound.value != $t::MAX);
-                        RangeBound::new(bound.value + 1, Inclusive)
+                        RangeBound::new(bound.value + ($delta), Inclusive)
                     }
                     _ => bound
                 }
@@ -143,8 +140,13 @@ macro_rules! bounded_normalizable {
     )
 }
 
-bounded_normalizable!(i32);
-bounded_normalizable!(i64);
+bounded_normalizable!(i32, 1);
+bounded_normalizable!(i64, 1);
+
+mod impls;
+
+#[cfg(feature = "with-chrono-0_4")]
+mod chrono_04;
 
 /// The possible sides of a bound.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
